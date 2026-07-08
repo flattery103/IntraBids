@@ -1,0 +1,4 @@
+Options -Indexes
+<FilesMatch "^(README|CHANGELOG).*">
+    Require all denied
+</FilesMatch>
