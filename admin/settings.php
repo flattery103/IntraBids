@@ -24,6 +24,8 @@ $checkboxKeys = [
     'allow_creator_to_bid',
     'show_winner_publicly',
     'smtp_enabled',
+    'access_requests_enabled',
+    'access_request_email_approval_enabled',
 ];
 
 if (is_post()) {
@@ -35,7 +37,7 @@ if (is_post()) {
         if (!filter_var($testEmail, FILTER_VALIDATE_EMAIL)) {
             flash('error', 'Enter a valid email address for the SMTP test.');
         } else {
-            $siteName = (string)setting('site_name', 'IntraBid');
+            $siteName = (string)setting('site_name', 'IntraBids');
             $sent = send_app_email($testEmail, $siteName . ' SMTP test', "This is a test email from " . $siteName . ".\n\nIf you received this message, SMTP notifications are working.");
             if ($sent) {
                 flash('success', 'SMTP test email sent.');
@@ -131,7 +133,7 @@ include dirname(__DIR__) . '/includes/header.php';
         <div class="grid">
             <div class="form-row">
                 <label for="site_name">Site Name</label>
-                <input id="site_name" name="site_name" value="<?= h(setting('site_name', 'IntraBid')) ?>">
+                <input id="site_name" name="site_name" value="<?= h(setting('site_name', 'IntraBids')) ?>">
                 <div class="help">This controls the browser title and header name.</div>
             </div>
             <div class="form-row">
@@ -180,8 +182,13 @@ include dirname(__DIR__) . '/includes/header.php';
         <div class="form-row inline"><input id="allow_creator_to_bid" type="checkbox" name="allow_creator_to_bid" value="1" <?= (string)setting('allow_creator_to_bid','0') === '1' ? 'checked' : '' ?>><label for="allow_creator_to_bid">Allow auction creators to bid on their own auctions</label></div>
         <div class="form-row inline"><input id="show_winner_publicly" type="checkbox" name="show_winner_publicly" value="1" <?= (string)setting('show_winner_publicly','1') === '1' ? 'checked' : '' ?>><label for="show_winner_publicly">Show auction winner publicly after auction ends</label></div>
 
+        <h2>Auction Posting Access Requests</h2>
+        <div class="form-row inline"><input id="access_requests_enabled" type="checkbox" name="access_requests_enabled" value="1" <?= (string)setting('access_requests_enabled','0') === '1' ? 'checked' : '' ?>><label for="access_requests_enabled">Allow users to request auction posting access from My Account</label></div>
+        <div class="form-row inline"><input id="access_request_email_approval_enabled" type="checkbox" name="access_request_email_approval_enabled" value="1" <?= (string)setting('access_request_email_approval_enabled','0') === '1' ? 'checked' : '' ?>><label for="access_request_email_approval_enabled">Include a passwordless approval button in administrator request emails</label></div>
+        <p class="help">When passwordless approval is enabled, active global administrators receive a secure one-time link that expires after 7 days. The link opens a confirmation page and does not approve access until the administrator selects the confirmation button.</p>
+
         <h2>SMTP Email</h2>
-        <p class="help">IntraBid sends notifications through this SMTP account. PHP <code>mail()</code> is not used.</p>
+        <p class="help">IntraBids sends notifications through this SMTP account. PHP <code>mail()</code> is not used.</p>
         <div class="form-row inline"><input id="smtp_enabled" type="checkbox" name="smtp_enabled" value="1" <?= (string)setting('smtp_enabled','0') === '1' ? 'checked' : '' ?>><label for="smtp_enabled">Enable SMTP notifications</label></div>
         <div class="grid">
             <div class="form-row">
@@ -190,7 +197,7 @@ include dirname(__DIR__) . '/includes/header.php';
             </div>
             <div class="form-row">
                 <label for="site_email_name">From Name</label>
-                <input id="site_email_name" name="site_email_name" value="<?= h(setting('site_email_name', 'IntraBid')) ?>" placeholder="IntraBid">
+                <input id="site_email_name" name="site_email_name" value="<?= h(setting('site_email_name', 'IntraBids')) ?>" placeholder="IntraBids">
             </div>
             <div class="form-row">
                 <label for="smtp_host">SMTP Host</label>

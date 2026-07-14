@@ -13,6 +13,36 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_users_active (is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at DATETIME NOT NULL,
+    requested_ip VARCHAR(45) NULL,
+    CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_password_reset_user (user_id),
+    INDEX idx_password_reset_expiry (expires_at, used_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auction_access_requests (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    status ENUM('pending','approved','denied') NOT NULL DEFAULT 'pending',
+    requested_at DATETIME NOT NULL,
+    resolved_at DATETIME NULL,
+    resolved_by INT UNSIGNED NULL,
+    resolution_method VARCHAR(40) NULL,
+    approval_token_hash CHAR(64) NULL UNIQUE,
+    approval_token_expires_at DATETIME NULL,
+    CONSTRAINT fk_access_request_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_access_request_resolver FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_access_request_status (status, requested_at),
+    INDEX idx_access_request_user (user_id, requested_at),
+    INDEX idx_access_request_expiry (approval_token_expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS categories (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(120) NOT NULL UNIQUE,
@@ -111,13 +141,13 @@ INSERT IGNORE INTO categories (name, description, is_active, sort_order, created
 ('Miscellaneous', 'Items that do not fit another category.', 1, 999, NOW(), NOW());
 
 INSERT IGNORE INTO settings (setting_key, setting_value) VALUES
-('site_name', 'IntraBid'),
+('site_name', 'IntraBids'),
 ('app_timezone', 'America/Chicago'),
 ('site_logo_path', ''),
 ('home_alert_enabled', '0'),
 ('home_alert_text', ''),
 ('site_email', ''),
-('site_email_name', 'IntraBid'),
+('site_email_name', 'IntraBids'),
 ('smtp_enabled', '0'),
 ('smtp_host', ''),
 ('smtp_port', '587'),
@@ -125,6 +155,8 @@ INSERT IGNORE INTO settings (setting_key, setting_value) VALUES
 ('smtp_username', ''),
 ('smtp_password', ''),
 ('registration_enabled', '1'),
+('access_requests_enabled', '0'),
+('access_request_email_approval_enabled', '0'),
 ('allowed_email_domain', ''),
 ('default_bid_increment', '1.00'),
 ('anti_sniping_enabled', '0'),

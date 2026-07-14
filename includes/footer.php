@@ -1,6 +1,6 @@
 </main>
 <footer class="footer">
-    <span>IntraBid internal auction system &mdash; v<?= h(intrabid_version()) ?></span>
+    <span>IntraBids internal auction system &mdash; v<?= h(intrabid_version()) ?></span>
 </footer>
 <script>
 (function(){

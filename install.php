@@ -27,7 +27,7 @@ if (is_post() && !$alreadyInstalled) {
     $timezone = trim($_POST['timezone'] ?? 'America/Chicago');
     $appUrl = rtrim(trim($_POST['app_url'] ?? guess_app_url()), '/');
     $siteEmail = trim($_POST['site_email'] ?? '');
-    $siteEmailName = trim($_POST['site_email_name'] ?? 'IntraBid');
+    $siteEmailName = trim($_POST['site_email_name'] ?? 'IntraBids');
     $smtpEnabled = isset($_POST['smtp_enabled']) ? '1' : '0';
     $smtpHost = trim($_POST['smtp_host'] ?? '');
     $smtpPort = trim($_POST['smtp_port'] ?? '587');
@@ -91,7 +91,7 @@ if (is_post() && !$alreadyInstalled) {
             $stmt->execute([$adminName, $adminEmail, $passwordHash]);
 
             $settings = [
-                'site_name' => 'IntraBid',
+                'site_name' => 'IntraBids',
                 'app_timezone' => $timezone,
                 'site_logo_path' => '',
                 'home_alert_enabled' => '0',
@@ -105,6 +105,8 @@ if (is_post() && !$alreadyInstalled) {
                 'smtp_username' => $smtpUsername,
                 'smtp_password' => $smtpPassword,
                 'registration_enabled' => '1',
+                'access_requests_enabled' => '0',
+                'access_request_email_approval_enabled' => '0',
                 'allowed_email_domain' => '',
                 'default_bid_increment' => '1.00',
                 'anti_sniping_enabled' => '0',
@@ -142,13 +144,13 @@ if (is_post() && !$alreadyInstalled) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Install IntraBid</title>
+    <title>Install IntraBids</title>
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 <main class="container">
     <div class="card">
-        <h1>Install IntraBid</h1>
+        <h1>Install IntraBids</h1>
         <p class="meta">This routine creates the MySQL database tables, writes <code>config/config.php</code>, and creates the first global admin account.</p>
     </div>
 
@@ -157,7 +159,7 @@ if (is_post() && !$alreadyInstalled) {
     <?php endforeach; ?>
 
     <?php if ($success): ?>
-        <div class="alert alert-success">IntraBid was installed successfully.</div>
+        <div class="alert alert-success">IntraBids was installed successfully.</div>
         <div class="card">
             <p>You can now log in with the global admin account you created.</p>
             <a class="btn" href="login.php">Go to login</a>
@@ -166,7 +168,7 @@ if (is_post() && !$alreadyInstalled) {
         <div class="card">
             <h2>Already installed</h2>
             <p><code>config/config.php</code> already exists. To reinstall, remove that file and run the installer again.</p>
-            <a class="btn" href="index.php">Go to IntraBid</a>
+            <a class="btn" href="index.php">Go to IntraBids</a>
         </div>
     <?php else: ?>
         <form method="post" class="card">
@@ -208,7 +210,7 @@ if (is_post() && !$alreadyInstalled) {
                 </div>
                 <div class="form-row">
                     <label for="site_email_name">Notification From Name</label>
-                    <input id="site_email_name" name="site_email_name" value="<?= h($_POST['site_email_name'] ?? 'IntraBid') ?>">
+                    <input id="site_email_name" name="site_email_name" value="<?= h($_POST['site_email_name'] ?? 'IntraBids') ?>">
                 </div>
             </div>
 
@@ -258,7 +260,7 @@ if (is_post() && !$alreadyInstalled) {
                     <input id="admin_password" name="admin_password" type="password" minlength="10" required>
                 </div>
             </div>
-            <button type="submit">Install IntraBid</button>
+            <button type="submit">Install IntraBids</button>
         </form>
     <?php endif; ?>
 </main>

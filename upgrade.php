@@ -121,7 +121,7 @@ if (!$isCli):
     include __DIR__ . '/includes/header.php';
 ?>
 <div class="card">
-    <h1>IntraBid Upgrade</h1>
+    <h1>IntraBids Upgrade</h1>
     <?php if ($errors): ?>
         <?php foreach ($errors as $error): ?><div class="alert alert-error"><?= h($error) ?></div><?php endforeach; ?>
     <?php else: ?>

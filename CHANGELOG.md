@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.7.0
+- Added a Forgot Your Password workflow using secure one-time reset links that expire after one hour.
+- Added My Account with authenticated password changes.
+- Added configurable user requests for auction posting access.
+- Added a pending posting-access request queue for global administrators with approve and deny actions.
+- Added email notifications to all active global administrators when posting access is requested.
+- Added an optional passwordless email approval button using a one-time seven-day link and a separate confirmation page.
+- Added HTML email support while preserving plain-text alternatives for existing notifications.
+- Added database migrations for password reset tokens, access requests, and the new administrator settings.
+
 ## v1.6.1
 - Fixed category drag-and-drop so rows follow mouse and touch movement reliably across supported browsers.
 - Kept automatic category-order saving and keyboard arrow reordering.

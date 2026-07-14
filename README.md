@@ -6,11 +6,16 @@ There is intentionally no committee role or auction approval workflow. A user wh
 
 ## Current version
 
-**IntraBids v1.6.1**
+**IntraBids v1.7.0**
 
 ## Included features
 
 - User registration, login, and logout
+- Forgot-password workflow with secure, one-time emailed reset links
+- Logged-in password changes from the My Account page
+- Configurable auction posting access requests
+- Global administrator access-request review with approve and deny actions
+- Optional passwordless email approval links for posting-access requests
 - Global administrator user management
 - Admin-granted **Can Create Auctions** permission
 - Auction category creation and management
@@ -153,6 +158,29 @@ Common SMTP ports:
 25  = internal relay or no encryption
 ```
 
+## Password management
+
+Users can change their password at any time from **My Account**. The change requires the current password.
+
+The login page also includes **Forgot Your Password?**. Reset links:
+
+- Are delivered through the configured SMTP account
+- Expire after one hour
+- Can be used only once
+- Are stored in the database as hashes rather than reusable plaintext tokens
+
+A correct `APP_URL` in `config/config.php` is required so emailed links point to the public IntraBids address.
+
+## Auction posting access requests
+
+Global administrators can configure access requests under **Admin → Settings**.
+
+- **Allow users to request auction posting access** displays the request option in **My Account** for users who cannot create auctions.
+- Requests are listed at the top of **Admin → Users**, where an administrator can approve or deny them.
+- All active global administrators receive a notification email when a request is submitted.
+- **Include a passwordless approval button** adds a one-time approval link to the email. The link expires after seven days and opens a confirmation page before permission is granted.
+- When passwordless approval is disabled, the email links to the authenticated admin review page instead.
+
 ## Application timezone
 
 IntraBids uses the **Application Timezone** setting under **Admin → Settings** for auction times, bid timestamps, automatic closing, and displayed timezone abbreviations.
@@ -183,6 +211,8 @@ Update the path to match the installation.
 - Browse active and scheduled auctions
 - Place bids
 - View personal bid history
+- Change their password from My Account
+- Request auction posting access when the feature is enabled
 
 ### Auction Creator
 
@@ -199,8 +229,10 @@ Update the path to match the installation.
 
 - Manage users
 - Grant auction creator access
+- Approve or deny auction posting access requests
 - Manage all auctions and categories
 - Configure the site name, logo, timezone, and home page banner
+- Enable or disable posting-access requests and passwordless email approval
 - Configure and test SMTP
 - Change application settings
 - View audit logs

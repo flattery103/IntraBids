@@ -1,6 +1,6 @@
 <?php
 $user = current_user();
-$siteName = setting('site_name', 'IntraBid');
+$siteName = setting('site_name', 'IntraBids');
 $siteLogo = setting('site_logo_path', '');
 $current = basename($_SERVER['SCRIPT_NAME'] ?? '');
 ?>
@@ -26,6 +26,7 @@ $current = basename($_SERVER['SCRIPT_NAME'] ?? '');
         <a href="<?= h(base_url('index.php')) ?>">Auctions</a>
         <?php if ($user): ?>
             <a href="<?= h(base_url('my_bids.php')) ?>">My Bids</a>
+            <a href="<?= h(base_url('account.php')) ?>">My Account</a>
             <?php if (can_create_auctions()): ?>
                 <a href="<?= h(base_url('creator/my_auctions.php')) ?>">My Auctions</a>
                 <a href="<?= h(base_url('admin/categories.php')) ?>">Categories</a>

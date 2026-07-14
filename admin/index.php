@@ -7,6 +7,7 @@ $stats = [
     'active' => db_one('SELECT COUNT(*) AS c FROM auctions WHERE status IN ("active","scheduled") AND start_time <= ? AND end_time > ?', [now_sql(), now_sql()])['c'] ?? 0,
     'scheduled' => db_one('SELECT COUNT(*) AS c FROM auctions WHERE status IN ("active","scheduled") AND start_time > ? AND end_time > ?', [now_sql(), now_sql()])['c'] ?? 0,
     'awarded' => db_one('SELECT COUNT(*) AS c FROM auctions WHERE status = "awarded"')['c'] ?? 0,
+    'access_requests' => db_one('SELECT COUNT(*) AS c FROM auction_access_requests WHERE status = "pending"')['c'] ?? 0,
 ];
 $recent = db_all('SELECT a.*, u.name AS creator_name FROM auctions a JOIN users u ON u.id = a.created_by ORDER BY a.created_at DESC LIMIT 10');
 include dirname(__DIR__) . '/includes/header.php';
@@ -27,6 +28,7 @@ include dirname(__DIR__) . '/includes/header.php';
     <div class="card"><div class="kpi"><?= (int)$stats['active'] ?></div><div>Active Auctions</div></div>
     <div class="card"><div class="kpi"><?= (int)$stats['scheduled'] ?></div><div>Scheduled Auctions</div></div>
     <div class="card"><div class="kpi"><?= (int)$stats['awarded'] ?></div><div>Awarded Auctions</div></div>
+    <div class="card"><div class="kpi"><?= (int)$stats['access_requests'] ?></div><div>Pending Access Requests</div></div>
 </div>
 <div class="card table-wrap">
     <h2>Recent Auctions</h2>

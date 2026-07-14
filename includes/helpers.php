@@ -433,13 +433,13 @@ function smtp_configuration_error(): ?string
     return null;
 }
 
-function smtp_send_email(string $to, string $subject, string $message): bool
+function smtp_send_message(string $to, string $subject, string $plainMessage, ?string $htmlMessage = null): bool
 {
     clear_last_email_error();
     $configError = smtp_configuration_error();
     if ($configError !== null) {
         set_last_email_error($configError);
-        error_log('IntraBid SMTP configuration error: ' . $configError);
+        error_log('IntraBids SMTP configuration error: ' . $configError);
         return false;
     }
 
@@ -462,7 +462,7 @@ function smtp_send_email(string $to, string $subject, string $message): bool
 
     $username = (string)setting('smtp_username', '');
     $password = (string)setting('smtp_password', '');
-    $fromName = (string)setting('site_email_name', setting('site_name', 'IntraBid'));
+    $fromName = (string)setting('site_email_name', setting('site_name', 'IntraBids'));
     $timeout = 20;
     $remote = ($encryption === 'ssl' ? 'ssl://' : '') . $host . ':' . $port;
 
@@ -470,7 +470,7 @@ function smtp_send_email(string $to, string $subject, string $message): bool
     if (!$socket) {
         $error = 'Could not connect to SMTP server: ' . $errstr . ' (' . $errno . ').';
         set_last_email_error($error);
-        error_log('IntraBid SMTP connection failed: ' . $errstr . ' (' . $errno . ')');
+        error_log('IntraBids SMTP connection failed: ' . $errstr . ' (' . $errno . ')');
         return false;
     }
 
@@ -509,13 +509,29 @@ function smtp_send_email(string $to, string $subject, string $message): bool
         $headers[] = 'To: <' . $to . '>';
         $headers[] = 'Subject: ' . smtp_encode_header($subject);
         $headers[] = 'MIME-Version: 1.0';
-        $headers[] = 'Content-Type: text/plain; charset=UTF-8';
-        $headers[] = 'Content-Transfer-Encoding: 8bit';
-        $headers[] = 'X-Mailer: IntraBid SMTP';
+        $headers[] = 'X-Mailer: IntraBids SMTP';
 
-        fwrite($socket, implode("\r\n", $headers) . "\r\n\r\n" . smtp_dot_stuff($message) . "\r\n.\r\n");
+        if ($htmlMessage !== null) {
+            $boundary = '=_IntraBids_' . bin2hex(random_bytes(16));
+            $headers[] = 'Content-Type: multipart/alternative; boundary="' . $boundary . '"';
+            $body = '--' . $boundary . "\r\n";
+            $body .= "Content-Type: text/plain; charset=UTF-8\r\n";
+            $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+            $body .= str_replace(["\r\n", "\r"], "\n", $plainMessage) . "\r\n";
+            $body .= '--' . $boundary . "\r\n";
+            $body .= "Content-Type: text/html; charset=UTF-8\r\n";
+            $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+            $body .= $htmlMessage . "\r\n";
+            $body .= '--' . $boundary . "--";
+        } else {
+            $headers[] = 'Content-Type: text/plain; charset=UTF-8';
+            $headers[] = 'Content-Transfer-Encoding: 8bit';
+            $body = $plainMessage;
+        }
+
+        fwrite($socket, implode("\r\n", $headers) . "\r\n\r\n" . smtp_dot_stuff($body) . "\r\n.\r\n");
         [$dataCode, $dataResponse] = smtp_read_response($socket);
-        if (!in_array($dataCode, [250], true)) {
+        if ($dataCode !== 250) {
             throw new RuntimeException('SMTP DATA failed: ' . $dataResponse);
         }
         smtp_send_command($socket, 'QUIT', [221]);
@@ -523,23 +539,45 @@ function smtp_send_email(string $to, string $subject, string $message): bool
         return true;
     } catch (Throwable $e) {
         set_last_email_error($e->getMessage());
-        error_log('IntraBid SMTP send failed: ' . $e->getMessage());
+        error_log('IntraBids SMTP send failed: ' . $e->getMessage());
         @fwrite($socket, "QUIT\r\n");
         fclose($socket);
         return false;
     }
 }
 
+function smtp_send_email(string $to, string $subject, string $message): bool
+{
+    return smtp_send_message($to, $subject, $message, null);
+}
+
 function send_app_email(string $to, string $subject, string $message): bool
 {
-    clear_last_email_error();
-    $configError = smtp_configuration_error();
-    if ($configError !== null) {
-        set_last_email_error($configError);
-        error_log('IntraBid email skipped: ' . $configError);
-        return false;
-    }
-    return smtp_send_email($to, $subject, $message);
+    return smtp_send_message($to, $subject, $message, null);
+}
+
+function send_app_html_email(string $to, string $subject, string $plainMessage, string $htmlMessage): bool
+{
+    return smtp_send_message($to, $subject, $plainMessage, $htmlMessage);
+}
+
+function email_page_html(string $heading, string $bodyHtml): string
+{
+    $siteName = h((string)setting('site_name', 'IntraBids'));
+    return '<!doctype html><html><body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#252525;">'
+        . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:28px 12px;"><tr><td align="center">'
+        . '<table role="presentation" width="760" cellspacing="0" cellpadding="0" style="width:100%;max-width:760px;background:#ffffff;border-collapse:collapse;">'
+        . '<tr><td style="padding:34px 42px 18px;text-align:center;font-size:34px;line-height:1.2;font-weight:500;">' . h($heading) . '</td></tr>'
+        . '<tr><td style="padding:20px 42px 40px;font-size:20px;line-height:1.55;">' . $bodyHtml . '</td></tr>'
+        . '<tr><td style="padding:18px 42px 28px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:13px;text-align:center;">' . $siteName . '</td></tr>'
+        . '</table></td></tr></table></body></html>';
+}
+
+function email_button_html(string $url, string $label): string
+{
+    return '<div style="text-align:center;margin:34px 0;">'
+        . '<a href="' . h($url) . '" style="display:inline-block;background:#0b69c7;color:#ffffff;text-decoration:none;font-size:20px;font-weight:700;padding:15px 28px;border-radius:7px;">'
+        . h($label) . '</a></div>';
 }
 
 function notify_winner(int $auctionId, int $userId): void
@@ -549,7 +587,7 @@ function notify_winner(int $auctionId, int $userId): void
     if (!$auction || !$user) {
         return;
     }
-    $siteName = (string)setting('site_name', 'IntraBid');
+    $siteName = (string)setting('site_name', 'IntraBids');
     $subject = 'You won: ' . $auction['title'];
     $body = "Congratulations!\n\nYou won the " . $siteName . " auction for:\n" . $auction['title'] . "\n\nFinal price: " . money($auction['current_high_bid']) . "\n\nPickup location: " . ($auction['pickup_location'] ?: 'Not specified') . "\nPickup instructions: " . ($auction['pickup_instructions'] ?: 'Not specified') . "\n\n" . base_url('auction.php?id=' . $auctionId);
     send_app_email($user['email'], $subject, $body);
@@ -567,7 +605,7 @@ function notify_auction_creator(int $auctionId): void
         return;
     }
 
-    $siteName = (string)setting('site_name', 'IntraBid');
+    $siteName = (string)setting('site_name', 'IntraBids');
     $subject = 'Auction ended: ' . $auction['title'];
 
     if (!empty($auction['winning_user_id'])) {

@@ -27,7 +27,7 @@ function sync_database_timezone(?PDO $pdo = null): void
         // Use the numeric offset because many MySQL/MariaDB installs do not load named timezone tables.
         $pdo->exec('SET time_zone = ' . $pdo->quote(date('P')));
     } catch (Throwable $e) {
-        error_log('IntraBid could not set database timezone: ' . $e->getMessage());
+        error_log('IntraBids could not set database timezone: ' . $e->getMessage());
     }
 }
 

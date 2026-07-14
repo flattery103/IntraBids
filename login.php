@@ -22,7 +22,7 @@ if (is_post()) {
 
 include __DIR__ . '/includes/header.php';
 ?>
-<div class="card" style="max-width:520px;margin:0 auto;">
+<div class="card auth-card">
     <h1>Login</h1>
     <form method="post">
         <?= csrf_field() ?>
@@ -35,6 +35,7 @@ include __DIR__ . '/includes/header.php';
             <input id="password" type="password" name="password" required>
         </div>
         <button type="submit">Login</button>
+        <a class="btn btn-secondary" href="<?= h(base_url('forgot_password.php')) ?>">Forgot Your Password?</a>
     </form>
 </div>
 <?php include __DIR__ . '/includes/footer.php'; ?>
