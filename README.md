@@ -6,7 +6,7 @@ There is intentionally no committee role or auction approval workflow. A user wh
 
 ## Current version
 
-**IntraBids v1.7.0**
+**IntraBids v1.7.1**
 
 ## Included features
 

@@ -139,7 +139,7 @@ include dirname(__DIR__) . '/includes/header.php';
 ?>
 <div class="card">
     <h1>Categories</h1>
-    <p class="meta">Auction creators and global admins can create and manage auction categories. Drag categories by the handle to change their display order.</p>
+    <p class="meta">Drag categories by the handle to change their display order.</p>
 </div>
 <div class="card">
     <h2>Add Category</h2>

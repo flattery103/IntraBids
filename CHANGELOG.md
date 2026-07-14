@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.7.1
+- Removed the requested explanatory text from the user and category administration pages.
+- Added a new IntraBids favicon for browser tabs and saved shortcuts.
+- Changed Forgot your password on the login page to a secondary text link so Login remains the primary action.
+- Added clearer visual separation and section headings throughout Admin Settings.
+- No database schema changes are required for this release.
+
 ## v1.7.0
 - Added a Forgot Your Password workflow using secure one-time reset links that expire after one hour.
 - Added My Account with authenticated password changes.

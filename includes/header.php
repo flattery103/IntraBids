@@ -10,6 +10,9 @@ $current = basename($_SERVER['SCRIPT_NAME'] ?? '');
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= h($siteName) ?></title>
+    <link rel="icon" href="<?= h(base_url('assets/images/favicon.ico?v=' . rawurlencode(intrabid_version()))) ?>" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= h(base_url('assets/images/favicon-32x32.png?v=' . rawurlencode(intrabid_version()))) ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= h(base_url('assets/images/apple-touch-icon.png?v=' . rawurlencode(intrabid_version()))) ?>">
     <link rel="stylesheet" href="<?= h(base_url('assets/css/style.css?v=' . rawurlencode(intrabid_version()))) ?>">
 </head>
 <body>

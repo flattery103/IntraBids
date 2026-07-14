@@ -145,6 +145,9 @@ if (is_post() && !$alreadyInstalled) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Install IntraBids</title>
+    <link rel="icon" href="assets/images/favicon.ico?v=1.7.1" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicon-32x32.png?v=1.7.1">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/images/apple-touch-icon.png?v=1.7.1">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>

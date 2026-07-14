@@ -35,7 +35,9 @@ include __DIR__ . '/includes/header.php';
             <input id="password" type="password" name="password" required>
         </div>
         <button type="submit">Login</button>
-        <a class="btn btn-secondary" href="<?= h(base_url('forgot_password.php')) ?>">Forgot Your Password?</a>
+        <div class="auth-secondary-action">
+            <a href="<?= h(base_url('forgot_password.php')) ?>">Forgot your password?</a>
+        </div>
     </form>
 </div>
 <?php include __DIR__ . '/includes/footer.php'; ?>

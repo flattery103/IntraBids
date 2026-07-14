@@ -177,17 +177,26 @@ include dirname(__DIR__) . '/includes/header.php';
             </div>
         </div>
 
+        <hr class="settings-separator">
+        <section class="settings-section" aria-labelledby="registration-auction-settings-heading">
+        <h2 id="registration-auction-settings-heading">Registration and Auction Behavior</h2>
         <div class="form-row inline"><input id="registration_enabled" type="checkbox" name="registration_enabled" value="1" <?= (string)setting('registration_enabled','1') === '1' ? 'checked' : '' ?>><label for="registration_enabled">Allow users to register</label></div>
         <div class="form-row inline"><input id="anti_sniping_enabled" type="checkbox" name="anti_sniping_enabled" value="1" <?= (string)setting('anti_sniping_enabled','0') === '1' ? 'checked' : '' ?>><label for="anti_sniping_enabled">Enable anti-sniping extension</label></div>
         <div class="form-row inline"><input id="allow_creator_to_bid" type="checkbox" name="allow_creator_to_bid" value="1" <?= (string)setting('allow_creator_to_bid','0') === '1' ? 'checked' : '' ?>><label for="allow_creator_to_bid">Allow auction creators to bid on their own auctions</label></div>
         <div class="form-row inline"><input id="show_winner_publicly" type="checkbox" name="show_winner_publicly" value="1" <?= (string)setting('show_winner_publicly','1') === '1' ? 'checked' : '' ?>><label for="show_winner_publicly">Show auction winner publicly after auction ends</label></div>
+        </section>
 
-        <h2>Auction Posting Access Requests</h2>
+        <hr class="settings-separator">
+        <section class="settings-section" aria-labelledby="access-request-settings-heading">
+        <h2 id="access-request-settings-heading">Auction Posting Access Requests</h2>
         <div class="form-row inline"><input id="access_requests_enabled" type="checkbox" name="access_requests_enabled" value="1" <?= (string)setting('access_requests_enabled','0') === '1' ? 'checked' : '' ?>><label for="access_requests_enabled">Allow users to request auction posting access from My Account</label></div>
         <div class="form-row inline"><input id="access_request_email_approval_enabled" type="checkbox" name="access_request_email_approval_enabled" value="1" <?= (string)setting('access_request_email_approval_enabled','0') === '1' ? 'checked' : '' ?>><label for="access_request_email_approval_enabled">Include a passwordless approval button in administrator request emails</label></div>
         <p class="help">When passwordless approval is enabled, active global administrators receive a secure one-time link that expires after 7 days. The link opens a confirmation page and does not approve access until the administrator selects the confirmation button.</p>
+        </section>
 
-        <h2>SMTP Email</h2>
+        <hr class="settings-separator">
+        <section class="settings-section" aria-labelledby="smtp-settings-heading">
+        <h2 id="smtp-settings-heading">SMTP Email</h2>
         <p class="help">IntraBids sends notifications through this SMTP account. PHP <code>mail()</code> is not used.</p>
         <div class="form-row inline"><input id="smtp_enabled" type="checkbox" name="smtp_enabled" value="1" <?= (string)setting('smtp_enabled','0') === '1' ? 'checked' : '' ?>><label for="smtp_enabled">Enable SMTP notifications</label></div>
         <div class="grid">
@@ -227,6 +236,7 @@ include dirname(__DIR__) . '/includes/header.php';
             </div>
         </div>
         <div class="form-row inline"><input id="clear_smtp_password" type="checkbox" name="clear_smtp_password" value="1"><label for="clear_smtp_password">Clear saved SMTP password</label></div>
+        </section>
 
         <button type="submit" name="action" value="save">Save Settings</button>
     </form>

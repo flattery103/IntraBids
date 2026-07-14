@@ -133,3 +133,27 @@ button:disabled:hover, .btn:disabled:hover { background:var(--danger); }
 .approval-card { max-width: 760px; margin: 2rem auto; }
 .account-grid { align-items: start; }
 .account-grid > .card { height: 100%; }
+
+
+/* Login action hierarchy */
+.auth-secondary-action {
+  margin-top: .9rem;
+  font-size: .95rem;
+}
+.auth-secondary-action a {
+  color: var(--muted);
+  font-weight: 600;
+}
+.auth-secondary-action a:hover {
+  color: var(--primary);
+}
+
+/* Admin Settings section separation */
+.settings-separator {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1.75rem 0;
+}
+.settings-section > h2 {
+  margin-bottom: 1rem;
+}

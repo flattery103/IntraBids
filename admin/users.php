@@ -92,7 +92,6 @@ include dirname(__DIR__) . '/includes/header.php';
 ?>
 <div class="card">
     <h1>Users</h1>
-    <p class="meta">Grant auction creation access here. There is no auction approval workflow; posting access means the user is trusted to publish auctions.</p>
 </div>
 
 <div class="card table-wrap">
