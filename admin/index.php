@@ -20,6 +20,7 @@ include dirname(__DIR__) . '/includes/header.php';
         <a class="btn" href="<?= h(base_url('admin/auctions.php')) ?>">Auctions</a>
         <a class="btn" href="<?= h(base_url('admin/settings.php')) ?>">Settings</a>
         <a class="btn" href="<?= h(base_url('admin/audit_logs.php')) ?>">Audit Logs</a>
+        <a class="btn" href="<?= h(base_url('admin/security.php')) ?>">Security &amp; Audit</a>
     </div>
 </div>
 <div class="grid">

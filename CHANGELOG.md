@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.8.0
+- Added a repository `.gitignore` that excludes live configuration, uploaded content, logs, backups, temporary files, and test artifacts.
+- Replaced the shared passwordless posting-access approval token with a unique seven-day token for each active global administrator.
+- Recorded the administrator associated with passwordless email approvals in the request and audit log.
+- Added requester email notifications when auction posting access is approved or denied.
+- Added configurable bidder-name privacy with full-name, first-name/last-initial, and anonymous-number modes.
+- Added creator-selectable primary auction images and made the primary image appear first on auction details and listing cards.
+- Added per-user email preferences for outbid, winning, creator auction-ended, and access-request decision notifications.
+- Added a Security & Audit Dashboard with failed-login, password, access-decision, privileged-change, token-retention, administrator, and recent-event information.
+- Added audit-log search and filters for action, user, entity type, IP address, date range, and free-text details, with supporting action/date and IP/date indexes.
+- Added configurable retention for audit logs and expired/used password-reset and email-approval tokens, including automatic daily cleanup and a manual cleanup action.
+- Added a global administrator action that forces a user to reset their password, emails a one-hour reset link when SMTP is available, and blocks normal use until the reset is completed.
+- Added an automated integration test that launches simultaneous bid workers and validates database row-locking behavior.
+- Added failed-login audit events to support security monitoring.
+- Added the v1.8.0 database migration and updated the installer.
+
 ## v1.7.1
 - Removed the requested explanatory text from the user and category administration pages.
 - Added a new IntraBids favicon for browser tabs and saved shortcuts.

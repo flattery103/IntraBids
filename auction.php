@@ -28,68 +28,24 @@ if (in_array($status, ['draft', 'cancelled'], true) && (!$user || (!is_admin() &
 if (is_post()) {
     require_login();
     verify_csrf();
-    $bidAmount = round((float)($_POST['bid_amount'] ?? 0), 2);
     $user = current_user();
-    $pdo = db();
     try {
-        $pdo->beginTransaction();
-        $stmt = $pdo->prepare('SELECT * FROM auctions WHERE id = ? FOR UPDATE');
-        $stmt->execute([$id]);
-        $locked = $stmt->fetch();
-        if (!$locked) {
-            throw new RuntimeException('Auction not found.');
-        }
-        $lockedStatus = effective_auction_status($locked);
-        if ($lockedStatus !== 'active') {
-            throw new RuntimeException('This auction is not currently active.');
-        }
-        if ((int)setting('allow_creator_to_bid', '0') !== 1 && (int)$locked['created_by'] === (int)$user['id']) {
-            throw new RuntimeException('Auction creators cannot bid on their own auctions.');
-        }
-        $currentHigh = $locked['current_high_bid'] === null ? null : (float)$locked['current_high_bid'];
-        $minimum = $currentHigh === null ? (float)$locked['starting_bid'] : $currentHigh + (float)$locked['bid_increment'];
-        if ($bidAmount < $minimum) {
-            throw new RuntimeException('Your bid must be at least ' . money($minimum) . '.');
-        }
-        $previousHighBidderId = $locked['current_high_bidder_id'] ? (int)$locked['current_high_bidder_id'] : null;
-        $bidCreatedAt = now_sql();
-        $insert = $pdo->prepare('INSERT INTO bids (auction_id, user_id, bid_amount, ip_address, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?)');
-        $insert->execute([$id, (int)$user['id'], $bidAmount, $_SERVER['REMOTE_ADDR'] ?? null, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255), $bidCreatedAt]);
-        $bidId = (int)$pdo->lastInsertId();
-
-        $newEndTime = $locked['end_time'];
-        if ((string)setting('anti_sniping_enabled', '0') === '1') {
-            $minutes = max(1, (int)setting('anti_sniping_minutes', '2'));
-            $secondsLeft = strtotime($locked['end_time']) - time();
-            if ($secondsLeft <= ($minutes * 60)) {
-                $newEndTime = date('Y-m-d H:i:s', time() + ($minutes * 60));
-            }
-        }
-
-        $update = $pdo->prepare('UPDATE auctions SET current_high_bid = ?, current_high_bidder_id = ?, end_time = ?, updated_at = ? WHERE id = ?');
-        $update->execute([$bidAmount, (int)$user['id'], $newEndTime, now_sql(), $id]);
-        $pdo->commit();
-        log_action((int)$user['id'], 'bid_placed', 'auction', $id, null, ['bid_id' => $bidId, 'amount' => $bidAmount]);
-
-        if ($previousHighBidderId && $previousHighBidderId !== (int)$user['id']) {
-            $previous = db_one('SELECT email, name FROM users WHERE id = ?', [$previousHighBidderId]);
-            if ($previous) {
-                send_app_email($previous['email'], 'You were outbid: ' . $locked['title'], "You were outbid on " . $locked['title'] . ".\n\nCurrent high bid: " . money($bidAmount) . "\n\n" . base_url('auction.php?id=' . $id));
-            }
-        }
+        place_auction_bid($id, $user, (string)($_POST['bid_amount'] ?? '0'), true);
         flash('success', 'Your bid was placed.');
-        redirect('auction.php?id=' . $id);
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
         flash('error', $e->getMessage());
-        redirect('auction.php?id=' . $id);
     }
+    redirect('auction.php?id=' . $id);
 }
 
-$images = db_all('SELECT * FROM auction_images WHERE auction_id = ? ORDER BY sort_order, id', [$id]);
+$images = db_all('SELECT * FROM auction_images WHERE auction_id = ? ORDER BY is_primary DESC, sort_order, id', [$id]);
 $bids = db_all('SELECT b.*, u.name FROM bids b JOIN users u ON u.id = b.user_id WHERE b.auction_id = ? ORDER BY b.bid_amount DESC, b.created_at ASC, b.id ASC', [$id]);
+$aliasRows = db_all('SELECT user_id, MIN(id) AS first_bid_id FROM bids WHERE auction_id = ? GROUP BY user_id ORDER BY first_bid_id ASC', [$id]);
+$bidderAliases = [];
+foreach ($aliasRows as $index => $aliasRow) {
+    $bidderAliases[(int)$aliasRow['user_id']] = $index + 1;
+}
+$privilegedBidView = $user && (is_admin() || (int)$auction['created_by'] === (int)$user['id']);
 $minimumBid = $auction['current_high_bid'] === null ? (float)$auction['starting_bid'] : ((float)$auction['current_high_bid'] + (float)$auction['bid_increment']);
 include __DIR__ . '/includes/header.php';
 ?>
@@ -148,7 +104,12 @@ include __DIR__ . '/includes/header.php';
         <?php elseif (in_array($status, ['ended','awarded'], true)): ?>
             <p>This auction ended <?= h(dt($auction['end_time'])) ?>.</p>
             <?php if ($auction['winning_user_id'] && ((string)setting('show_winner_publicly', '1') === '1' || is_admin() || ($user && (int)$user['id'] === (int)$auction['winning_user_id']))): ?>
-                <p><strong>Winner:</strong> <?= h($auction['winner_name']) ?> for <?= money($auction['current_high_bid']) ?></p>
+                <?php
+                    $winnerDisplay = ($user && (int)$user['id'] === (int)$auction['winning_user_id'])
+                        ? 'You'
+                        : bidder_name_for_view((string)$auction['winner_name'], (int)$auction['winning_user_id'], $bidderAliases, (bool)$privilegedBidView);
+                ?>
+                <p><strong>Winner:</strong> <?= h($winnerDisplay) ?> for <?= money($auction['current_high_bid']) ?></p>
             <?php endif; ?>
         <?php else: ?>
             <p>This auction is not open for bidding.</p>
@@ -167,7 +128,7 @@ include __DIR__ . '/includes/header.php';
                 <tbody>
                 <?php foreach ($bids as $bid): ?>
                     <tr>
-                        <td><?= h($bid['name']) ?></td>
+                        <td><?= h(bidder_name_for_view((string)$bid['name'], (int)$bid['user_id'], $bidderAliases, (bool)$privilegedBidView)) ?></td>
                         <td><?= money($bid['bid_amount']) ?></td>
                         <td><?= h(dt($bid['created_at'])) ?></td>
                     </tr>

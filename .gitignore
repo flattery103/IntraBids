@@ -1,21 +1,27 @@
-# IntraBids local configuration
-config/config.php
+# Live configuration and secrets
+/config/config.php
 
-# Uploaded files
-uploads/*
-!uploads/.htaccess
-!uploads/auctions/
-!uploads/auctions/.htaccess
-!uploads/site/
-!uploads/site/.htaccess
+# User-uploaded content
+/uploads/auctions/*
+!/uploads/auctions/.gitkeep
+!/uploads/auctions/.htaccess
+/uploads/site/*
+!/uploads/site/.gitkeep
+!/uploads/site/.htaccess
 
-# Logs/temp/cache
+# Runtime, backup, and temporary files
 *.log
-tmp/
-cache/
-
-# OS/editor files
+*.bak
+*.tmp
+*.swp
+*~
 .DS_Store
 Thumbs.db
-.vscode/
-.idea/
+/.idea/
+/.vscode/
+/vendor/
+
+# Test configuration and artifacts
+/tests/.env
+/tests/tmp/
+/tests/output/

@@ -42,7 +42,7 @@ if (is_post()) {
         if (!$locked || $locked['used_at'] !== null || strtotime((string)$locked['expires_at']) < time()) {
             throw new RuntimeException('This password reset link is invalid, expired, or has already been used.');
         }
-        db_exec('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?', [password_hash($newPassword, PASSWORD_DEFAULT), (int)$locked['user_id']]);
+        db_exec('UPDATE users SET password_hash = ?, must_reset_password = 0, updated_at = NOW() WHERE id = ?', [password_hash($newPassword, PASSWORD_DEFAULT), (int)$locked['user_id']]);
         db_exec('UPDATE password_reset_tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL', [now_sql(), (int)$locked['user_id']]);
         $pdo->commit();
         log_action((int)$locked['user_id'], 'password_reset_completed', 'user', (int)$locked['user_id']);

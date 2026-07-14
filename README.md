@@ -6,7 +6,7 @@ There is intentionally no committee role or auction approval workflow. A user wh
 
 ## Current version
 
-**IntraBids v1.7.1**
+**IntraBids v1.8.0**
 
 ## Included features
 
@@ -16,6 +16,8 @@ There is intentionally no committee role or auction approval workflow. A user wh
 - Configurable auction posting access requests
 - Global administrator access-request review with approve and deny actions
 - Optional passwordless email approval links for posting-access requests
+- Per-administrator passwordless approval links with administrator attribution
+- Requester email notifications when posting access is approved or denied
 - Global administrator user management
 - Admin-granted **Can Create Auctions** permission
 - Auction category creation and management
@@ -25,6 +27,7 @@ There is intentionally no committee role or auction approval workflow. A user wh
 - Auction drafts, scheduled auctions, active auctions, ended auctions, awarded auctions, and cancelled auctions
 - Timed auctions with server-side start and end enforcement
 - Multiple image uploads per auction
+- Creator-selectable primary auction image
 - Clickable portrait auction thumbnails that display the full image
 - Left-side category menu with per-category auction counts
 - Configurable Recently Ended time window
@@ -32,6 +35,8 @@ There is intentionally no committee role or auction approval workflow. A user wh
 - Optional home page alert banner with administrator-controlled text
 - My Auctions winner display after an auction closes
 - My Bids history
+- Configurable bidder-name privacy for public bid history
+- Per-user email notification preferences
 - Server-side bid validation and bid increments
 - Optional anti-sniping extension
 - Automatic auction closing and winner selection
@@ -39,10 +44,24 @@ There is intentionally no committee role or auction approval workflow. A user wh
 - SMTP configuration testing with useful error messages
 - Application timezone control with timezone abbreviations on displayed timestamps
 - Audit logs
+- Searchable and filterable audit logs
+- Security and audit dashboard
+- Configurable audit-log and expired-token retention
+- Global administrator forced password resets
 - Web-based installation routine
 - Built-in database upgrade routine
 - Cron-compatible auction closing script
+- Automated MySQL/MariaDB concurrent-bid integration test
+- Git-safe defaults through the included `.gitignore`
 - Current application version in the footer
+
+## Automated test
+
+The included concurrency test launches two PHP workers against a dedicated MySQL/MariaDB test database and verifies that row locking accepts exactly one identical simultaneous bid. See `tests/README.md` for the required environment variables and run:
+
+```bash
+php tests/run_concurrent_bid_test.php
+```
 
 ## Requirements
 

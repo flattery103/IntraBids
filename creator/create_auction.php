@@ -77,7 +77,7 @@ include dirname(__DIR__) . '/includes/header.php';
             <div class="form-row">
                 <label for="images">Images</label>
                 <input id="images" name="images[]" type="file" accept="image/*" multiple>
-                <div class="help">JPG, PNG, GIF, or WebP. Max 5 MB each.</div>
+                <div class="help">JPG, PNG, GIF, or WebP. Max 5 MB each. The first image becomes primary; you can change it from Edit Auction.</div>
             </div>
         </div>
         <div class="grid">

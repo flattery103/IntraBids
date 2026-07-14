@@ -28,18 +28,61 @@ if (is_post()) {
                 $message = 'The auction posting access request was denied.';
             }
 
+            $resolvedAt = now_sql();
             db_exec(
                 'UPDATE auction_access_requests SET status = ?, resolved_at = ?, resolved_by = ?, resolution_method = ?, approval_token_hash = NULL, approval_token_expires_at = NULL WHERE id = ?',
-                [$status, now_sql(), (int)$current['id'], 'admin_interface', $requestId]
+                [$status, $resolvedAt, (int)$current['id'], 'admin_interface', $requestId]
             );
+            db_exec('UPDATE auction_access_approval_tokens SET used_at = ? WHERE request_id = ? AND used_at IS NULL', [$resolvedAt, $requestId]);
             $pdo->commit();
             log_action((int)$current['id'], $logAction, 'auction_access_request', $requestId, null, ['user_id' => (int)$request['user_id']]);
+            notify_access_request_resolution($requestId);
             flash('success', $message);
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
             flash('error', $e->getMessage());
+        }
+        redirect('admin/users.php');
+    }
+
+    if ($action === 'force_password_reset') {
+        $userId = (int)($_POST['user_id'] ?? 0);
+        $target = db_one('SELECT * FROM users WHERE id = ?', [$userId]);
+        if (!$target) {
+            flash('error', 'User not found.');
+            redirect('admin/users.php');
+        }
+        if ((int)$target['is_active'] !== 1) {
+            flash('error', 'Activate the user before requiring a password reset.');
+            redirect('admin/users.php');
+        }
+
+        $token = null;
+        $emailSent = false;
+        try {
+            $pdo = db();
+            $pdo->beginTransaction();
+            db_exec('UPDATE users SET must_reset_password = 1, updated_at = NOW() WHERE id = ?', [$userId]);
+            $token = create_password_reset_token($userId, $_SERVER['REMOTE_ADDR'] ?? null, 3600);
+            $pdo->commit();
+            $emailSent = send_password_reset_message($target, (string)$token['token'], true);
+            if (!$emailSent) {
+                db_exec('DELETE FROM password_reset_tokens WHERE id = ?', [(int)$token['id']]);
+            }
+            log_action((int)$current['id'], 'user_force_password_reset', 'user', $userId, null, [
+                'email_sent' => $emailSent,
+                'email_error' => $emailSent ? null : get_last_email_error(),
+            ]);
+            flash('success', $emailSent
+                ? 'The user must reset their password. A one-hour reset link was emailed to them.'
+                : 'The user must reset their password at their next login, but the reset email could not be sent: ' . get_last_email_error());
+        } catch (Throwable $e) {
+            if (isset($pdo) && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            flash('error', 'The password-reset requirement could not be applied: ' . $e->getMessage());
         }
         redirect('admin/users.php');
     }
@@ -59,18 +102,31 @@ if (is_post()) {
             if ($target['role'] === 'admin' && $role !== 'admin' && $adminCount <= 1) {
                 flash('error', 'At least one active global admin is required.');
             } else {
+                $pendingRequestIds = [];
+                if ($role === 'admin' || $canCreate === 1) {
+                    $pendingRequestIds = array_map(
+                        static fn(array $row): int => (int)$row['id'],
+                        db_all("SELECT id FROM auction_access_requests WHERE user_id = ? AND status = 'pending'", [$userId])
+                    );
+                }
                 $pdo = db();
                 $pdo->beginTransaction();
                 try {
                     db_exec('UPDATE users SET name = ?, role = ?, can_create_auctions = ?, is_active = ?, updated_at = NOW() WHERE id = ?', [$name, $role, $canCreate, $isActive, $userId]);
-                    if ($role === 'admin' || $canCreate === 1) {
+                    if ($pendingRequestIds) {
+                        $resolvedAt = now_sql();
                         db_exec(
                             "UPDATE auction_access_requests SET status = 'approved', resolved_at = ?, resolved_by = ?, resolution_method = 'admin_user_update', approval_token_hash = NULL, approval_token_expires_at = NULL WHERE user_id = ? AND status = 'pending'",
-                            [now_sql(), (int)$current['id'], $userId]
+                            [$resolvedAt, (int)$current['id'], $userId]
                         );
+                        $placeholders = implode(',', array_fill(0, count($pendingRequestIds), '?'));
+                        db_exec("UPDATE auction_access_approval_tokens SET used_at = ? WHERE request_id IN ($placeholders) AND used_at IS NULL", array_merge([$resolvedAt], $pendingRequestIds));
                     }
                     $pdo->commit();
                     log_action((int)$current['id'], 'user_updated', 'user', $userId, $target, ['role' => $role, 'can_create_auctions' => $canCreate, 'is_active' => $isActive]);
+                    foreach ($pendingRequestIds as $requestId) {
+                        notify_access_request_resolution($requestId);
+                    }
                     flash('success', 'User updated.');
                 } catch (Throwable $e) {
                     if ($pdo->inTransaction()) {
@@ -132,28 +188,38 @@ include dirname(__DIR__) . '/includes/header.php';
 
 <div class="card table-wrap">
     <h2>All Users</h2>
-    <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Can Create Auctions</th><th>Active</th><th>Last Login</th><th></th></tr></thead>
+    <table class="admin-users-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Can Create Auctions</th><th>Active</th><th>Password</th><th>Last Login</th><th>Actions</th></tr></thead>
         <tbody>
         <?php foreach ($users as $u): ?>
+            <?php $formId = 'user-form-' . (int)$u['id']; ?>
             <tr>
-                <form method="post">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="action" value="update_user">
-                    <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
-                    <td><input name="name" value="<?= h($u['name']) ?>"></td>
-                    <td><?= h($u['email']) ?></td>
-                    <td>
-                        <select name="role">
-                            <option value="user" <?= $u['role'] === 'user' ? 'selected' : '' ?>>User</option>
-                            <option value="admin" <?= $u['role'] === 'admin' ? 'selected' : '' ?>>Global Admin</option>
-                        </select>
-                    </td>
-                    <td class="inline"><input type="checkbox" name="can_create_auctions" value="1" <?= ((int)$u['can_create_auctions'] === 1 || $u['role'] === 'admin') ? 'checked' : '' ?>> Yes</td>
-                    <td class="inline"><input type="checkbox" name="is_active" value="1" <?= (int)$u['is_active'] === 1 ? 'checked' : '' ?>> Active</td>
-                    <td><?= h($u['last_login_at'] ? dt($u['last_login_at']) : 'Never') ?></td>
-                    <td><button class="btn-small" type="submit">Save</button></td>
-                </form>
+                <td><input form="<?= h($formId) ?>" name="name" value="<?= h($u['name']) ?>" aria-label="Name for <?= h($u['name']) ?>"></td>
+                <td><?= h($u['email']) ?></td>
+                <td>
+                    <select form="<?= h($formId) ?>" name="role" aria-label="Role for <?= h($u['name']) ?>">
+                        <option value="user" <?= $u['role'] === 'user' ? 'selected' : '' ?>>User</option>
+                        <option value="admin" <?= $u['role'] === 'admin' ? 'selected' : '' ?>>Global Admin</option>
+                    </select>
+                </td>
+                <td><label class="inline-choice"><input form="<?= h($formId) ?>" type="checkbox" name="can_create_auctions" value="1" <?= ((int)$u['can_create_auctions'] === 1 || $u['role'] === 'admin') ? 'checked' : '' ?>> Yes</label></td>
+                <td><label class="inline-choice"><input form="<?= h($formId) ?>" type="checkbox" name="is_active" value="1" <?= (int)$u['is_active'] === 1 ? 'checked' : '' ?>> Active</label></td>
+                <td><?= (int)$u['must_reset_password'] === 1 ? '<span class="badge badge-ended">Reset required</span>' : '<span class="badge badge-active">Current</span>' ?></td>
+                <td><?= h($u['last_login_at'] ? dt($u['last_login_at']) : 'Never') ?></td>
+                <td>
+                    <form id="<?= h($formId) ?>" method="post" class="inline-form">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="update_user">
+                        <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
+                        <button class="btn-small" type="submit">Save</button>
+                    </form>
+                    <form method="post" class="inline-form" onsubmit="return confirm('Require this user to reset their password?');">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="force_password_reset">
+                        <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
+                        <button class="btn-small btn-secondary" type="submit">Force Password Reset</button>
+                    </form>
+                </td>
             </tr>
         <?php endforeach; ?>
         </tbody>

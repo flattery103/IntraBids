@@ -157,3 +157,27 @@ button:disabled:hover, .btn:disabled:hover { background:var(--danger); }
 .settings-section > h2 {
   margin-bottom: 1rem;
 }
+
+/* IntraBids v1.8.0 account, image, audit, and security improvements */
+.checkbox-stack { display:grid; gap:.75rem; }
+.checkbox-stack label { display:flex; align-items:flex-start; gap:.6rem; font-weight:600; margin:0; }
+.checkbox-stack input[type="checkbox"], .inline-choice input[type="checkbox"] { width:auto; margin-top:.2rem; flex:0 0 auto; }
+.inline-choice { display:flex; align-items:center; gap:.4rem; margin:0; white-space:nowrap; }
+.inline-form { display:inline-block; margin:.15rem .25rem .15rem 0; }
+.settings-narrow-field { max-width:520px; margin-top:1rem; }
+.page-heading-actions { justify-content:space-between; align-items:flex-start; }
+.page-heading-actions h1 { margin-bottom:.25rem; }
+.kpi-link { color:var(--text); transition:transform .12s ease, box-shadow .12s ease; }
+.kpi-link:hover { text-decoration:none; transform:translateY(-1px); box-shadow:0 4px 12px rgba(16,42,67,.12); }
+.security-kpi-grid .card { min-height:120px; }
+.audit-filter-form .grid { grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); }
+.admin-users-table td:last-child { min-width:205px; }
+.auction-image-management-item { border:1px solid var(--border); border-radius:10px; padding:.65rem; background:#fff; }
+.auction-image-management-item.is-primary { border:2px solid var(--success); background:#f0fff4; }
+.auction-image-management-item > img { width:100% !important; height:260px !important; max-height:260px !important; object-fit:contain !important; background:#f8fafc; border-radius:8px; }
+.image-management-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-top:.65rem; }
+
+@media (max-width:760px) {
+  .page-heading-actions { flex-direction:column; }
+  .admin-users-table td:last-child { min-width:180px; }
+}

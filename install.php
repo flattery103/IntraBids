@@ -87,8 +87,15 @@ if (is_post() && !$alreadyInstalled) {
             $passwordHash = password_hash($adminPass, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("INSERT INTO users (name, email, password_hash, role, can_create_auctions, is_active, created_at, updated_at)
                 VALUES (?, ?, ?, 'admin', 1, 1, NOW(), NOW())
-                ON DUPLICATE KEY UPDATE name = VALUES(name), password_hash = VALUES(password_hash), role = 'admin', can_create_auctions = 1, is_active = 1, updated_at = NOW()");
+                ON DUPLICATE KEY UPDATE name = VALUES(name), password_hash = VALUES(password_hash), role = 'admin', can_create_auctions = 1, is_active = 1, must_reset_password = 0, updated_at = NOW()");
             $stmt->execute([$adminName, $adminEmail, $passwordHash]);
+            $adminIdStmt = $pdo->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+            $adminIdStmt->execute([$adminEmail]);
+            $adminId = (int)$adminIdStmt->fetchColumn();
+            if ($adminId > 0) {
+                $preferenceStmt = $pdo->prepare('INSERT IGNORE INTO user_notification_preferences (user_id, updated_at) VALUES (?, NOW())');
+                $preferenceStmt->execute([$adminId]);
+            }
 
             $settings = [
                 'site_name' => 'IntraBids',
@@ -114,6 +121,11 @@ if (is_post() && !$alreadyInstalled) {
                 'recently_ended_days' => '7',
                 'allow_creator_to_bid' => '0',
                 'show_winner_publicly' => '1',
+                'bidder_name_privacy' => 'full',
+                'audit_log_retention_days' => '365',
+                'security_token_retention_days' => '30',
+                'last_security_cleanup_at' => '',
+                'schema_version' => '1.8.0',
             ];
             $settingsStmt = $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
             foreach ($settings as $key => $value) {
@@ -145,9 +157,9 @@ if (is_post() && !$alreadyInstalled) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Install IntraBids</title>
-    <link rel="icon" href="assets/images/favicon.ico?v=1.7.1" sizes="any">
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicon-32x32.png?v=1.7.1">
-    <link rel="apple-touch-icon" sizes="180x180" href="assets/images/apple-touch-icon.png?v=1.7.1">
+    <link rel="icon" href="assets/images/favicon.ico?v=1.8.0" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicon-32x32.png?v=1.8.0">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/images/apple-touch-icon.png?v=1.8.0">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>

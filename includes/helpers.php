@@ -151,6 +151,178 @@ function user_display(?array $user): string
     return trim(($user['name'] ?? '') ?: ($user['email'] ?? 'Unknown'));
 }
 
+
+function notification_preferences(int $userId): array
+{
+    $defaults = [
+        'email_outbid' => 1,
+        'email_auction_won' => 1,
+        'email_creator_ended' => 1,
+        'email_access_request_updates' => 1,
+    ];
+    try {
+        $row = db_one('SELECT * FROM user_notification_preferences WHERE user_id = ?', [$userId]);
+        if (!$row) {
+            return $defaults;
+        }
+        foreach ($defaults as $key => $default) {
+            $defaults[$key] = isset($row[$key]) ? (int)$row[$key] : $default;
+        }
+    } catch (Throwable $e) {
+        // Preserve notification behavior during an incomplete upgrade.
+    }
+    return $defaults;
+}
+
+function notification_enabled(int $userId, string $preference): bool
+{
+    $preferences = notification_preferences($userId);
+    return !isset($preferences[$preference]) || (int)$preferences[$preference] === 1;
+}
+
+function bidder_privacy_mode(): string
+{
+    $mode = (string)setting('bidder_name_privacy', 'full');
+    return in_array($mode, ['full', 'initials', 'anonymous'], true) ? $mode : 'full';
+}
+
+function abbreviated_person_name(string $name): string
+{
+    $name = trim(preg_replace('/\s+/', ' ', $name) ?? $name);
+    if ($name === '') {
+        return 'Unknown';
+    }
+    $parts = explode(' ', $name);
+    if (count($parts) === 1) {
+        return $parts[0];
+    }
+    $first = array_shift($parts);
+    $last = (string)end($parts);
+    $initial = function_exists('mb_substr') ? mb_substr($last, 0, 1) : substr($last, 0, 1);
+    return $first . ' ' . strtoupper($initial) . '.';
+}
+
+function bidder_name_for_view(string $name, int $userId, array $anonymousNumbers = [], bool $privileged = false): string
+{
+    if ($privileged) {
+        return $name !== '' ? $name : 'Unknown';
+    }
+    $mode = bidder_privacy_mode();
+    if ($mode === 'initials') {
+        return abbreviated_person_name($name);
+    }
+    if ($mode === 'anonymous') {
+        $number = isset($anonymousNumbers[$userId]) ? max(1, (int)$anonymousNumbers[$userId]) : 1;
+        return 'Bidder ' . $number;
+    }
+    return $name !== '' ? $name : 'Unknown';
+}
+
+function create_password_reset_token(int $userId, ?string $requestedIp = null, int $lifetimeSeconds = 3600): array
+{
+    $plainToken = bin2hex(random_bytes(32));
+    $expiresAt = date('Y-m-d H:i:s', time() + max(300, $lifetimeSeconds));
+    db_exec('UPDATE password_reset_tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL', [now_sql(), $userId]);
+    db_exec('INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, created_at, requested_ip) VALUES (?, ?, ?, ?, ?)', [
+        $userId,
+        hash('sha256', $plainToken),
+        $expiresAt,
+        now_sql(),
+        $requestedIp,
+    ]);
+    return [
+        'id' => (int)db()->lastInsertId(),
+        'token' => $plainToken,
+        'expires_at' => $expiresAt,
+    ];
+}
+
+function send_password_reset_message(array $user, string $plainToken, bool $administratorRequired = false): bool
+{
+    $siteName = (string)setting('site_name', 'IntraBids');
+    $resetUrl = base_url('reset_password.php?token=' . rawurlencode($plainToken));
+    $subject = $administratorRequired ? $siteName . ' password reset required' : $siteName . ' password reset';
+    $intro = $administratorRequired
+        ? 'A global administrator has required a password reset for your ' . $siteName . ' account.'
+        : 'A password reset was requested for your ' . $siteName . ' account.';
+    $plain = 'Hello ' . user_display($user) . ",\n\n" . $intro . "\n\nReset your password: " . $resetUrl
+        . "\n\nThis link expires in 1 hour and can only be used once."
+        . ($administratorRequired ? " Normal account access is blocked until this reset is completed." : " If you did not request this reset, you can ignore this email.");
+    $bodyHtml = '<p>Hello <strong>' . h(user_display($user)) . '</strong>,</p>'
+        . '<p>' . h($intro) . '</p>'
+        . email_button_html($resetUrl, 'RESET PASSWORD')
+        . '<p><strong>This link expires in 1 hour and can only be used once.</strong></p>'
+        . ($administratorRequired
+            ? '<p>Normal account access is blocked until this reset is completed.</p>'
+            : '<p>If you did not request this reset, you can ignore this email.</p>');
+    return send_app_html_email((string)$user['email'], $subject, $plain, email_page_html('Reset Your Password', $bodyHtml));
+}
+
+function notify_access_request_resolution(int $requestId): bool
+{
+    $request = db_one(
+        'SELECT r.*, requester.name, requester.email, resolver.name AS resolver_name '
+        . 'FROM auction_access_requests r '
+        . 'JOIN users requester ON requester.id = r.user_id '
+        . 'LEFT JOIN users resolver ON resolver.id = r.resolved_by '
+        . 'WHERE r.id = ?',
+        [$requestId]
+    );
+    if (!$request || !in_array($request['status'], ['approved', 'denied'], true)) {
+        return false;
+    }
+    if (!notification_enabled((int)$request['user_id'], 'email_access_request_updates')) {
+        log_action((int)$request['user_id'], 'auction_access_resolution_email_skipped', 'auction_access_request', $requestId, null, ['reason' => 'user_preference']);
+        return true;
+    }
+
+    $approved = $request['status'] === 'approved';
+    $siteName = (string)setting('site_name', 'IntraBids');
+    $subject = $approved ? 'Auction posting access approved' : 'Auction posting access request denied';
+    $result = $approved
+        ? 'Your request to post auctions has been approved. You can now create and publish auctions.'
+        : 'Your request to post auctions was not approved at this time.';
+    $plain = 'Hello ' . user_display($request) . ",\n\n" . $result . "\n\n" . base_url('account.php');
+    $bodyHtml = '<p>Hello <strong>' . h(user_display($request)) . '</strong>,</p>'
+        . '<p>' . h($result) . '</p>'
+        . email_button_html(base_url('account.php'), 'OPEN MY ACCOUNT');
+    $sent = send_app_html_email((string)$request['email'], $siteName . ': ' . $subject, $plain, email_page_html($subject, $bodyHtml));
+    log_action($request['resolved_by'] !== null ? (int)$request['resolved_by'] : null, $sent ? 'auction_access_resolution_email_sent' : 'auction_access_resolution_email_failed', 'auction_access_request', $requestId, null, ['status' => $request['status'], 'error' => $sent ? null : get_last_email_error()]);
+    return $sent;
+}
+
+function run_security_retention_maintenance(bool $force = false): array
+{
+    $lastRun = (string)setting('last_security_cleanup_at', '');
+    if (!$force && $lastRun !== '' && strtotime($lastRun) !== false && strtotime($lastRun) > time() - 86400) {
+        return ['skipped' => true, 'audit_logs' => 0, 'password_tokens' => 0, 'approval_tokens' => 0];
+    }
+
+    $auditDays = max(30, min(3650, (int)setting('audit_log_retention_days', '365')));
+    $tokenDays = max(1, min(365, (int)setting('security_token_retention_days', '30')));
+    $auditCutoff = date('Y-m-d H:i:s', strtotime('-' . $auditDays . ' days'));
+    $tokenCutoff = date('Y-m-d H:i:s', strtotime('-' . $tokenDays . ' days'));
+
+    $deletedAudit = db_exec('DELETE FROM audit_logs WHERE created_at < ?', [$auditCutoff]);
+    $deletedPassword = db_exec('DELETE FROM password_reset_tokens WHERE (used_at IS NOT NULL AND used_at < ?) OR (used_at IS NULL AND expires_at < ?)', [$tokenCutoff, $tokenCutoff]);
+    $deletedApproval = 0;
+    try {
+        $deletedApproval = db_exec('DELETE FROM auction_access_approval_tokens WHERE (used_at IS NOT NULL AND used_at < ?) OR (used_at IS NULL AND expires_at < ?)', [$tokenCutoff, $tokenCutoff]);
+    } catch (Throwable $e) {
+        // The table may not exist until the v1.8.0 migration has run.
+    }
+    db_exec("UPDATE auction_access_requests SET approval_token_hash = NULL, approval_token_expires_at = NULL WHERE approval_token_expires_at IS NOT NULL AND approval_token_expires_at < ?", [$tokenCutoff]);
+    set_setting_value('last_security_cleanup_at', now_sql());
+    log_action(null, 'security_retention_cleanup', 'system', null, null, [
+        'audit_logs_deleted' => $deletedAudit,
+        'password_tokens_deleted' => $deletedPassword,
+        'approval_tokens_deleted' => $deletedApproval,
+        'audit_retention_days' => $auditDays,
+        'token_retention_days' => $tokenDays,
+    ]);
+    return ['skipped' => false, 'audit_logs' => $deletedAudit, 'password_tokens' => $deletedPassword, 'approval_tokens' => $deletedApproval];
+}
+
 function upload_auction_images(int $auctionId, array $files): array
 {
     $saved = [];
@@ -169,6 +341,8 @@ function upload_auction_images(int $auctionId, array $files): array
         'image/gif' => 'gif',
         'image/webp' => 'webp',
     ];
+    $maxSort = (int)(db_one('SELECT COALESCE(MAX(sort_order), -1) AS max_sort FROM auction_images WHERE auction_id = ?', [$auctionId])['max_sort'] ?? -1);
+    $hasPrimary = (int)(db_one('SELECT COUNT(*) AS c FROM auction_images WHERE auction_id = ? AND is_primary = 1', [$auctionId])['c'] ?? 0) > 0;
 
     $count = count($files['name']);
     for ($i = 0; $i < $count; $i++) {
@@ -192,8 +366,12 @@ function upload_auction_images(int $auctionId, array $files): array
             throw new RuntimeException('Could not save uploaded image.');
         }
         $relative = 'uploads/auctions/' . $filename;
-        db_exec('INSERT INTO auction_images (auction_id, file_path, sort_order, created_at) VALUES (?, ?, ?, ?)', [$auctionId, $relative, $i, now_sql()]);
+        $isPrimary = !$hasPrimary && count($saved) === 0 ? 1 : 0;
+        db_exec('INSERT INTO auction_images (auction_id, file_path, sort_order, is_primary, created_at) VALUES (?, ?, ?, ?, ?)', [$auctionId, $relative, $maxSort + count($saved) + 1, $isPrimary, now_sql()]);
         $saved[] = $relative;
+        if ($isPrimary === 1) {
+            $hasPrimary = true;
+        }
     }
     return $saved;
 }
@@ -275,6 +453,7 @@ function run_auction_maintenance(): void
         foreach ($due as $row) {
             close_single_auction((int)$row['id']);
         }
+        run_security_retention_maintenance(false);
     } catch (Throwable $e) {
         // Avoid breaking normal page loads if maintenance encounters a temporary issue.
     }
@@ -584,7 +763,7 @@ function notify_winner(int $auctionId, int $userId): void
 {
     $auction = db_one('SELECT * FROM auctions WHERE id = ?', [$auctionId]);
     $user = db_one('SELECT * FROM users WHERE id = ?', [$userId]);
-    if (!$auction || !$user) {
+    if (!$auction || !$user || !notification_enabled((int)$user['id'], 'email_auction_won')) {
         return;
     }
     $siteName = (string)setting('site_name', 'IntraBids');
@@ -601,7 +780,7 @@ function notify_auction_creator(int $auctionId): void
                        LEFT JOIN users creator ON creator.id = a.created_by
                        LEFT JOIN users winner ON winner.id = a.winning_user_id
                        WHERE a.id = ?', [$auctionId]);
-    if (!$auction || empty($auction['creator_email'])) {
+    if (!$auction || empty($auction['creator_email']) || !notification_enabled((int)$auction['created_by'], 'email_creator_ended')) {
         return;
     }
 

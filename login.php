@@ -15,8 +15,12 @@ if (is_post()) {
         $_SESSION['user_id'] = (int)$user['id'];
         db_exec('UPDATE users SET last_login_at = NOW(), updated_at = NOW() WHERE id = ?', [(int)$user['id']]);
         log_action((int)$user['id'], 'login', 'user', (int)$user['id']);
+        if ((int)($user['must_reset_password'] ?? 0) === 1) {
+            redirect('forced_password_reset.php');
+        }
         redirect('index.php');
     }
+    log_action($user ? (int)$user['id'] : null, 'login_failed', 'user', $user ? (int)$user['id'] : null, null, ['email' => $email]);
     flash('error', 'Invalid email, password, or inactive account.');
 }
 

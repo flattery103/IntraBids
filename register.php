@@ -34,6 +34,7 @@ if (is_post()) {
             password_hash($password, PASSWORD_DEFAULT),
         ]);
         $userId = (int)db()->lastInsertId();
+        db_exec('INSERT IGNORE INTO user_notification_preferences (user_id, updated_at) VALUES (?, ?)', [$userId, now_sql()]);
         log_action($userId, 'registered', 'user', $userId);
         flash('success', 'Account created. You can now log in.');
         redirect('login.php');

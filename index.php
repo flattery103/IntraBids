@@ -40,7 +40,7 @@ if ($categoryId > 0) {
 }
 
 $active = db_all("SELECT a.*, c.name AS category_name, u.name AS creator_name,
-        (SELECT file_path FROM auction_images ai WHERE ai.auction_id = a.id ORDER BY sort_order, id LIMIT 1) AS image_path
+        (SELECT file_path FROM auction_images ai WHERE ai.auction_id = a.id ORDER BY is_primary DESC, sort_order, id LIMIT 1) AS image_path
     FROM auctions a
     JOIN categories c ON c.id = a.category_id
     JOIN users u ON u.id = a.created_by
@@ -51,7 +51,7 @@ $active = db_all("SELECT a.*, c.name AS category_name, u.name AS creator_name,
     ORDER BY a.end_time ASC", $paramsActive);
 
 $scheduled = db_all("SELECT a.*, c.name AS category_name,
-        (SELECT file_path FROM auction_images ai WHERE ai.auction_id = a.id ORDER BY sort_order, id LIMIT 1) AS image_path
+        (SELECT file_path FROM auction_images ai WHERE ai.auction_id = a.id ORDER BY is_primary DESC, sort_order, id LIMIT 1) AS image_path
     FROM auctions a
     JOIN categories c ON c.id = a.category_id
     WHERE a.status IN ('active','scheduled')
@@ -63,7 +63,7 @@ $scheduled = db_all("SELECT a.*, c.name AS category_name,
 
 $endedWhere = $categoryId > 0 ? 'AND a.category_id = ?' : '';
 $ended = db_all("SELECT a.*, c.name AS category_name,
-        (SELECT file_path FROM auction_images ai WHERE ai.auction_id = a.id ORDER BY sort_order, id LIMIT 1) AS image_path
+        (SELECT file_path FROM auction_images ai WHERE ai.auction_id = a.id ORDER BY is_primary DESC, sort_order, id LIMIT 1) AS image_path
     FROM auctions a
     JOIN categories c ON c.id = a.category_id
     WHERE a.status IN ('ended','awarded')

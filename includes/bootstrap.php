@@ -24,6 +24,7 @@ if (defined('APP_TIMEZONE')) {
 
 require_once ROOT_PATH . '/includes/db.php';
 require_once ROOT_PATH . '/includes/helpers.php';
+require_once ROOT_PATH . '/includes/bidding.php';
 require_once ROOT_PATH . '/includes/csrf.php';
 require_once ROOT_PATH . '/includes/auth.php';
 
@@ -33,5 +34,11 @@ if (!$installMode && file_exists(CONFIG_PATH)) {
     sync_database_timezone();
     if (!(defined('INTRABID_SKIP_MAINTENANCE') && INTRABID_SKIP_MAINTENANCE === true)) {
         run_auction_maintenance();
+    }
+    $authenticatedUser = current_user();
+    $currentScript = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    if ($authenticatedUser && (int)($authenticatedUser['must_reset_password'] ?? 0) === 1
+        && !in_array($currentScript, ['forced_password_reset.php', 'logout.php'], true)) {
+        redirect('forced_password_reset.php');
     }
 }

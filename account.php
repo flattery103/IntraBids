@@ -20,11 +20,34 @@ if (is_post()) {
         } elseif ($newPassword !== $confirmPassword) {
             flash('error', 'The new password and confirmation do not match.');
         } else {
-            db_exec('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?', [password_hash($newPassword, PASSWORD_DEFAULT), (int)$user['id']]);
+            db_exec('UPDATE users SET password_hash = ?, must_reset_password = 0, updated_at = NOW() WHERE id = ?', [password_hash($newPassword, PASSWORD_DEFAULT), (int)$user['id']]);
             db_exec('UPDATE password_reset_tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL', [now_sql(), (int)$user['id']]);
             log_action((int)$user['id'], 'password_changed', 'user', (int)$user['id']);
             flash('success', 'Your password has been changed.');
         }
+        redirect('account.php');
+    }
+
+    if ($action === 'save_email_preferences') {
+        $values = [
+            isset($_POST['email_outbid']) ? 1 : 0,
+            isset($_POST['email_auction_won']) ? 1 : 0,
+            isset($_POST['email_creator_ended']) ? 1 : 0,
+            isset($_POST['email_access_request_updates']) ? 1 : 0,
+        ];
+        db_exec(
+            'INSERT INTO user_notification_preferences (user_id, email_outbid, email_auction_won, email_creator_ended, email_access_request_updates, updated_at) '
+            . 'VALUES (?, ?, ?, ?, ?, ?) '
+            . 'ON DUPLICATE KEY UPDATE email_outbid = VALUES(email_outbid), email_auction_won = VALUES(email_auction_won), email_creator_ended = VALUES(email_creator_ended), email_access_request_updates = VALUES(email_access_request_updates), updated_at = VALUES(updated_at)',
+            [(int)$user['id'], ...$values, now_sql()]
+        );
+        log_action((int)$user['id'], 'notification_preferences_updated', 'user', (int)$user['id'], null, [
+            'email_outbid' => $values[0],
+            'email_auction_won' => $values[1],
+            'email_creator_ended' => $values[2],
+            'email_access_request_updates' => $values[3],
+        ]);
+        flash('success', 'Email notification preferences updated.');
         redirect('account.php');
     }
 
@@ -45,13 +68,9 @@ if (is_post()) {
         }
 
         $emailApprovalEnabled = (string)setting('access_request_email_approval_enabled', '0') === '1';
-        $plainToken = $emailApprovalEnabled ? bin2hex(random_bytes(32)) : '';
-        $tokenHash = $plainToken !== '' ? hash('sha256', $plainToken) : null;
-        $expiresAt = $plainToken !== '' ? date('Y-m-d H:i:s', time() + (7 * 86400)) : null;
-
         db_exec(
-            "INSERT INTO auction_access_requests (user_id, status, requested_at, approval_token_hash, approval_token_expires_at) VALUES (?, 'pending', ?, ?, ?)",
-            [(int)$user['id'], now_sql(), $tokenHash, $expiresAt]
+            "INSERT INTO auction_access_requests (user_id, status, requested_at, approval_token_hash, approval_token_expires_at) VALUES (?, 'pending', ?, NULL, NULL)",
+            [(int)$user['id'], now_sql()]
         );
         $requestId = (int)db()->lastInsertId();
         log_action((int)$user['id'], 'auction_access_requested', 'auction_access_request', $requestId);
@@ -59,21 +78,29 @@ if (is_post()) {
         $admins = db_all("SELECT id, name, email FROM users WHERE role = 'admin' AND is_active = 1 ORDER BY id");
         $sentCount = 0;
         $failedCount = 0;
-        $siteName = (string)setting('site_name', 'IntraBids');
         $subject = 'Auction posting access request from ' . user_display($user);
 
         foreach ($admins as $admin) {
             $adminName = trim((string)($admin['name'] ?: 'Global Admin'));
             $requesterName = user_display($user);
-            if ($emailApprovalEnabled && $plainToken !== '') {
+            $tokenRowId = 0;
+
+            if ($emailApprovalEnabled) {
+                $plainToken = bin2hex(random_bytes(32));
+                $expiresAt = date('Y-m-d H:i:s', time() + (7 * 86400));
+                db_exec(
+                    'INSERT INTO auction_access_approval_tokens (request_id, admin_user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
+                    [$requestId, (int)$admin['id'], hash('sha256', $plainToken), $expiresAt, now_sql()]
+                );
+                $tokenRowId = (int)db()->lastInsertId();
                 $actionUrl = base_url('approve_access.php?token=' . rawurlencode($plainToken));
                 $buttonLabel = 'REVIEW AND APPROVE';
-                $actionText = "Review and approve without signing in: " . $actionUrl;
-                $expiryText = 'This approval link expires in 7 days. Opening the link does not approve the request until the confirmation button is selected.';
+                $actionText = 'Review and approve without signing in: ' . $actionUrl;
+                $expiryText = 'This approval link is unique to you and expires in 7 days. Opening the link does not approve the request until the confirmation button is selected.';
             } else {
                 $actionUrl = base_url('admin/users.php');
                 $buttonLabel = 'REVIEW REQUEST';
-                $actionText = "Sign in to review the request: " . $actionUrl;
+                $actionText = 'Sign in to review the request: ' . $actionUrl;
                 $expiryText = 'Sign in to the global admin area to approve or deny this request.';
             }
 
@@ -95,6 +122,9 @@ if (is_post()) {
                 $sentCount++;
             } else {
                 $failedCount++;
+                if ($tokenRowId > 0) {
+                    db_exec('DELETE FROM auction_access_approval_tokens WHERE id = ?', [$tokenRowId]);
+                }
                 log_action((int)$user['id'], 'auction_access_email_failed', 'auction_access_request', $requestId, null, ['admin_id' => (int)$admin['id'], 'error' => get_last_email_error()]);
             }
         }
@@ -114,6 +144,7 @@ if (is_post()) {
 
 $pendingRequest = db_one("SELECT * FROM auction_access_requests WHERE user_id = ? AND status = 'pending' ORDER BY requested_at DESC LIMIT 1", [(int)$user['id']]);
 $latestRequest = db_one('SELECT * FROM auction_access_requests WHERE user_id = ? ORDER BY requested_at DESC LIMIT 1', [(int)$user['id']]);
+$emailPreferences = notification_preferences((int)$user['id']);
 
 include __DIR__ . '/includes/header.php';
 ?>
@@ -165,6 +196,22 @@ include __DIR__ . '/includes/header.php';
                 <button type="submit">Request Access to Post Auctions</button>
             </form>
         <?php endif; ?>
+    </div>
+
+    <div class="card">
+        <h2>Email Notifications</h2>
+        <form method="post">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="save_email_preferences">
+            <div class="form-row checkbox-stack">
+                <label><input type="checkbox" name="email_outbid" value="1" <?= (int)$emailPreferences['email_outbid'] === 1 ? 'checked' : '' ?>> Email me when I am outbid</label>
+                <label><input type="checkbox" name="email_auction_won" value="1" <?= (int)$emailPreferences['email_auction_won'] === 1 ? 'checked' : '' ?>> Email me when I win an auction</label>
+                <label><input type="checkbox" name="email_creator_ended" value="1" <?= (int)$emailPreferences['email_creator_ended'] === 1 ? 'checked' : '' ?>> Email me when an auction I created ends</label>
+                <label><input type="checkbox" name="email_access_request_updates" value="1" <?= (int)$emailPreferences['email_access_request_updates'] === 1 ? 'checked' : '' ?>> Email me when my posting-access request is approved or denied</label>
+            </div>
+            <p class="help">Password-reset and other essential security messages are always sent when needed.</p>
+            <button type="submit">Save Notification Preferences</button>
+        </form>
     </div>
 </div>
 <?php include __DIR__ . '/includes/footer.php'; ?>

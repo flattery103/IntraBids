@@ -28,6 +28,12 @@ if (isset($_GET['delete_image'])) {
     $image = db_one('SELECT * FROM auction_images WHERE id = ? AND auction_id = ?', [$imageId, $id]);
     if ($image && $canMajorEdit) {
         db_exec('DELETE FROM auction_images WHERE id = ?', [$imageId]);
+        if ((int)($image['is_primary'] ?? 0) === 1) {
+            $replacement = db_one('SELECT id FROM auction_images WHERE auction_id = ? ORDER BY sort_order, id LIMIT 1', [$id]);
+            if ($replacement) {
+                db_exec('UPDATE auction_images SET is_primary = 1 WHERE id = ?', [(int)$replacement['id']]);
+            }
+        }
         $path = ROOT_PATH . '/' . $image['file_path'];
         if (is_file($path)) {
             @unlink($path);
@@ -41,6 +47,30 @@ if (isset($_GET['delete_image'])) {
 if (is_post()) {
     verify_csrf();
     $action = $_POST['action'] ?? 'save';
+
+    if ($action === 'set_primary_image') {
+        $imageId = (int)($_POST['image_id'] ?? 0);
+        $image = db_one('SELECT * FROM auction_images WHERE id = ? AND auction_id = ?', [$imageId, $id]);
+        if (!$image) {
+            flash('error', 'Image not found.');
+        } else {
+            $pdo = db();
+            $pdo->beginTransaction();
+            try {
+                db_exec('UPDATE auction_images SET is_primary = 0 WHERE auction_id = ?', [$id]);
+                db_exec('UPDATE auction_images SET is_primary = 1 WHERE id = ? AND auction_id = ?', [$imageId, $id]);
+                $pdo->commit();
+                log_action((int)$user['id'], 'auction_primary_image_changed', 'auction', $id, null, ['image_id' => $imageId]);
+                flash('success', 'Primary auction image updated.');
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                flash('error', $e->getMessage());
+            }
+        }
+        redirect('creator/edit_auction.php?id=' . $id);
+    }
 
     if ($action === 'cancel') {
         if (in_array($auction['status'], ['ended', 'awarded', 'cancelled'], true)) {
@@ -96,7 +126,7 @@ if (is_post()) {
 }
 
 $auction = db_one('SELECT * FROM auctions WHERE id = ?', [$id]);
-$images = db_all('SELECT * FROM auction_images WHERE auction_id = ? ORDER BY sort_order, id', [$id]);
+$images = db_all('SELECT * FROM auction_images WHERE auction_id = ? ORDER BY is_primary DESC, sort_order, id', [$id]);
 include dirname(__DIR__) . '/includes/header.php';
 ?>
 <div class="card">
@@ -189,11 +219,23 @@ include dirname(__DIR__) . '/includes/header.php';
     <h2>Images</h2>
     <div class="image-gallery">
         <?php foreach ($images as $img): ?>
-            <div>
-                <img src="<?= h(base_url($img['file_path'])) ?>" alt="">
-                <?php if ($canMajorEdit): ?>
-                    <p><a class="btn btn-small btn-danger" onclick="return confirm('Delete this image?');" href="<?= h(base_url('creator/edit_auction.php?id=' . $id . '&delete_image=' . $img['id'])) ?>">Delete</a></p>
-                <?php endif; ?>
+            <div class="auction-image-management-item <?= (int)$img['is_primary'] === 1 ? 'is-primary' : '' ?>">
+                <img src="<?= h(base_url($img['file_path'])) ?>" alt="Auction image">
+                <div class="image-management-actions">
+                    <?php if ((int)$img['is_primary'] === 1): ?>
+                        <span class="badge badge-active">Primary Image</span>
+                    <?php else: ?>
+                        <form method="post" class="inline-form">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="action" value="set_primary_image">
+                            <input type="hidden" name="image_id" value="<?= (int)$img['id'] ?>">
+                            <button class="btn-small btn-secondary" type="submit">Make Primary</button>
+                        </form>
+                    <?php endif; ?>
+                    <?php if ($canMajorEdit): ?>
+                        <a class="btn btn-small btn-danger" onclick="return confirm('Delete this image?');" href="<?= h(base_url('creator/edit_auction.php?id=' . $id . '&delete_image=' . $img['id'])) ?>">Delete</a>
+                    <?php endif; ?>
+                </div>
             </div>
         <?php endforeach; ?>
     </div>

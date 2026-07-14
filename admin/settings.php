@@ -16,6 +16,9 @@ $textKeys = [
     'smtp_port',
     'smtp_encryption',
     'smtp_username',
+    'bidder_name_privacy',
+    'audit_log_retention_days',
+    'security_token_retention_days',
 ];
 $checkboxKeys = [
     'registration_enabled',
@@ -50,6 +53,16 @@ if (is_post()) {
         redirect('admin/settings.php');
     }
 
+    if ($action === 'run_security_cleanup') {
+        try {
+            $result = run_security_retention_maintenance(true);
+            flash('success', 'Security retention cleanup completed. Audit logs removed: ' . (int)$result['audit_logs'] . '; password-reset tokens removed: ' . (int)$result['password_tokens'] . '; approval tokens removed: ' . (int)$result['approval_tokens'] . '.');
+        } catch (Throwable $e) {
+            flash('error', 'Security retention cleanup failed: ' . $e->getMessage());
+        }
+        redirect('admin/settings.php');
+    }
+
     foreach ($textKeys as $key) {
         $value = trim((string)($_POST[$key] ?? ''));
         if ($key === 'app_timezone') {
@@ -63,6 +76,15 @@ if (is_post()) {
         }
         if ($key === 'smtp_encryption' && !in_array($value, ['tls', 'ssl', 'none'], true)) {
             $value = 'tls';
+        }
+        if ($key === 'bidder_name_privacy' && !in_array($value, ['full', 'initials', 'anonymous'], true)) {
+            $value = 'full';
+        }
+        if ($key === 'audit_log_retention_days') {
+            $value = (string)max(30, min(3650, (int)$value));
+        }
+        if ($key === 'security_token_retention_days') {
+            $value = (string)max(1, min(365, (int)$value));
         }
         if ($key === 'recently_ended_days') {
             $value = (string)max(1, min(365, (int)$value));
@@ -184,6 +206,16 @@ include dirname(__DIR__) . '/includes/header.php';
         <div class="form-row inline"><input id="anti_sniping_enabled" type="checkbox" name="anti_sniping_enabled" value="1" <?= (string)setting('anti_sniping_enabled','0') === '1' ? 'checked' : '' ?>><label for="anti_sniping_enabled">Enable anti-sniping extension</label></div>
         <div class="form-row inline"><input id="allow_creator_to_bid" type="checkbox" name="allow_creator_to_bid" value="1" <?= (string)setting('allow_creator_to_bid','0') === '1' ? 'checked' : '' ?>><label for="allow_creator_to_bid">Allow auction creators to bid on their own auctions</label></div>
         <div class="form-row inline"><input id="show_winner_publicly" type="checkbox" name="show_winner_publicly" value="1" <?= (string)setting('show_winner_publicly','1') === '1' ? 'checked' : '' ?>><label for="show_winner_publicly">Show auction winner publicly after auction ends</label></div>
+        <div class="form-row settings-narrow-field">
+            <label for="bidder_name_privacy">Bidder Name Privacy</label>
+            <?php $bidderPrivacy = (string)setting('bidder_name_privacy', 'full'); ?>
+            <select id="bidder_name_privacy" name="bidder_name_privacy">
+                <option value="full" <?= $bidderPrivacy === 'full' ? 'selected' : '' ?>>Full name</option>
+                <option value="initials" <?= $bidderPrivacy === 'initials' ? 'selected' : '' ?>>First name and last initial</option>
+                <option value="anonymous" <?= $bidderPrivacy === 'anonymous' ? 'selected' : '' ?>>Anonymous bidder number</option>
+            </select>
+            <div class="help">Controls names shown in public bid history. Global admins and the auction creator still see full names.</div>
+        </div>
         </section>
 
         <hr class="settings-separator">
@@ -192,6 +224,24 @@ include dirname(__DIR__) . '/includes/header.php';
         <div class="form-row inline"><input id="access_requests_enabled" type="checkbox" name="access_requests_enabled" value="1" <?= (string)setting('access_requests_enabled','0') === '1' ? 'checked' : '' ?>><label for="access_requests_enabled">Allow users to request auction posting access from My Account</label></div>
         <div class="form-row inline"><input id="access_request_email_approval_enabled" type="checkbox" name="access_request_email_approval_enabled" value="1" <?= (string)setting('access_request_email_approval_enabled','0') === '1' ? 'checked' : '' ?>><label for="access_request_email_approval_enabled">Include a passwordless approval button in administrator request emails</label></div>
         <p class="help">When passwordless approval is enabled, active global administrators receive a secure one-time link that expires after 7 days. The link opens a confirmation page and does not approve access until the administrator selects the confirmation button.</p>
+        </section>
+
+        <hr class="settings-separator">
+        <section class="settings-section" aria-labelledby="security-retention-settings-heading">
+        <h2 id="security-retention-settings-heading">Security and Data Retention</h2>
+        <div class="grid">
+            <div class="form-row">
+                <label for="audit_log_retention_days">Audit Log Retention Days</label>
+                <input id="audit_log_retention_days" name="audit_log_retention_days" type="number" min="30" max="3650" value="<?= h(setting('audit_log_retention_days', '365')) ?>">
+                <div class="help">Audit events older than this are deleted. Range: 30–3650 days.</div>
+            </div>
+            <div class="form-row">
+                <label for="security_token_retention_days">Expired Security Token Retention Days</label>
+                <input id="security_token_retention_days" name="security_token_retention_days" type="number" min="1" max="365" value="<?= h(setting('security_token_retention_days', '30')) ?>">
+                <div class="help">Used or expired password-reset and email-approval tokens are kept this long before deletion.</div>
+            </div>
+        </div>
+        <p class="help">Cleanup runs automatically at most once per day. Last cleanup: <?= h(setting('last_security_cleanup_at', '') ? dt((string)setting('last_security_cleanup_at', '')) : 'Not yet run') ?>.</p>
         </section>
 
         <hr class="settings-separator">
@@ -239,6 +289,16 @@ include dirname(__DIR__) . '/includes/header.php';
         </section>
 
         <button type="submit" name="action" value="save">Save Settings</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Run Security Retention Cleanup</h2>
+    <p class="help">Runs the configured audit-log and expired-token cleanup immediately.</p>
+    <form method="post" onsubmit="return confirm('Run security retention cleanup now?');">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="run_security_cleanup">
+        <button class="btn-secondary" type="submit">Run Cleanup Now</button>
     </form>
 </div>
 

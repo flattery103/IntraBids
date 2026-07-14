@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
     role ENUM('user','admin') NOT NULL DEFAULT 'user',
     can_create_auctions TINYINT(1) NOT NULL DEFAULT 0,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
+    must_reset_password TINYINT(1) NOT NULL DEFAULT 0,
     last_login_at DATETIME NULL,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
@@ -41,6 +42,30 @@ CREATE TABLE IF NOT EXISTS auction_access_requests (
     INDEX idx_access_request_status (status, requested_at),
     INDEX idx_access_request_user (user_id, requested_at),
     INDEX idx_access_request_expiry (approval_token_expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auction_access_approval_tokens (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    request_id BIGINT UNSIGNED NOT NULL,
+    admin_user_id INT UNSIGNED NOT NULL,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at DATETIME NOT NULL,
+    CONSTRAINT fk_access_approval_request FOREIGN KEY (request_id) REFERENCES auction_access_requests(id) ON DELETE CASCADE,
+    CONSTRAINT fk_access_approval_admin FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_access_approval_admin (request_id, admin_user_id),
+    INDEX idx_access_approval_expiry (expires_at, used_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_notification_preferences (
+    user_id INT UNSIGNED PRIMARY KEY,
+    email_outbid TINYINT(1) NOT NULL DEFAULT 1,
+    email_auction_won TINYINT(1) NOT NULL DEFAULT 1,
+    email_creator_ended TINYINT(1) NOT NULL DEFAULT 1,
+    email_access_request_updates TINYINT(1) NOT NULL DEFAULT 1,
+    updated_at DATETIME NOT NULL,
+    CONSTRAINT fk_notification_preferences_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -106,9 +131,11 @@ CREATE TABLE IF NOT EXISTS auction_images (
     auction_id INT UNSIGNED NOT NULL,
     file_path VARCHAR(255) NOT NULL,
     sort_order INT NOT NULL DEFAULT 0,
+    is_primary TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL,
     CONSTRAINT fk_images_auction FOREIGN KEY (auction_id) REFERENCES auctions(id) ON DELETE CASCADE,
-    INDEX idx_images_auction (auction_id, sort_order)
+    INDEX idx_images_auction (auction_id, sort_order),
+    INDEX idx_images_primary (auction_id, is_primary)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -124,6 +151,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     INDEX idx_audit_user (user_id),
     INDEX idx_audit_entity (entity_type, entity_id),
     INDEX idx_audit_created (created_at),
+    INDEX idx_audit_action_created (action, created_at),
+    INDEX idx_audit_ip_created (ip_address, created_at),
     CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -163,4 +192,9 @@ INSERT IGNORE INTO settings (setting_key, setting_value) VALUES
 ('anti_sniping_minutes', '2'),
 ('recently_ended_days', '7'),
 ('allow_creator_to_bid', '0'),
-('show_winner_publicly', '1');
+('show_winner_publicly', '1'),
+('bidder_name_privacy', 'full'),
+('audit_log_retention_days', '365'),
+('security_token_retention_days', '30'),
+('last_security_cleanup_at', ''),
+('schema_version', '1.8.0');
