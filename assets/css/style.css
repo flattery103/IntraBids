@@ -85,3 +85,45 @@ th { background:#f8fafc; }
   .topbar a { margin:.25rem .75rem .25rem 0; display:inline-block; }
   .auction-image-link, .auction-image-portrait { min-height:220px; max-height:320px; }
 }
+
+/* Home page alert banner */
+.home-alert-banner {
+  margin-bottom: 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid #e4b44c;
+  border-left: 6px solid #b7791f;
+  border-radius: 10px;
+  background: #fff8db;
+  color: #5f3b00;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.5;
+  box-shadow: 0 1px 2px rgba(95, 59, 0, 0.08);
+}
+.home-alert-setting { grid-column: 1 / -1; }
+.home-alert-setting h3 { margin:0 0 .65rem; }
+.home-alert-toggle { margin-bottom:.75rem; }
+.home-alert-toggle label { margin-bottom:0; }
+.home-alert-setting textarea { min-height: 100px; }
+
+/* Category drag-and-drop management */
+.category-table-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:.75rem; }
+.category-table-heading h2 { margin-bottom:.25rem; }
+.category-sort-status { min-width:180px; min-height:1.5rem; text-align:right; font-weight:700; font-size:.92rem; }
+.category-sort-status-saving { color:var(--warning); }
+.category-sort-status-success { color:var(--success); }
+.category-sort-status-error { color:var(--danger); }
+.category-management-table .drag-column { width:74px; text-align:center; }
+.category-sort-row { transition:box-shadow .15s ease, background .15s ease; }
+.category-sort-row.category-sort-dragging { background:#eff6ff; box-shadow:0 6px 18px rgba(16,42,67,.18); }
+.drag-handle { padding:.45rem .65rem; min-width:42px; cursor:grab; touch-action:none; user-select:none; font-size:1.1rem; line-height:1; }
+.drag-handle:active, .category-sort-active .drag-handle[aria-grabbed="true"] { cursor:grabbing; }
+.category-actions { display:flex; gap:.45rem; flex-wrap:wrap; }
+button:disabled, .btn:disabled { opacity:.5; cursor:not-allowed; }
+button:disabled:hover, .btn:disabled:hover { background:var(--danger); }
+.category-sort-active { user-select:none; }
+
+@media (max-width: 760px) {
+  .category-table-heading { flex-direction:column; }
+  .category-sort-status { text-align:left; min-width:0; }
+}

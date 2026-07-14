@@ -114,6 +114,8 @@ INSERT IGNORE INTO settings (setting_key, setting_value) VALUES
 ('site_name', 'IntraBid'),
 ('app_timezone', 'America/Chicago'),
 ('site_logo_path', ''),
+('home_alert_enabled', '0'),
+('home_alert_text', ''),
 ('site_email', ''),
 ('site_email_name', 'IntraBid'),
 ('smtp_enabled', '0'),

@@ -4,6 +4,7 @@ require_admin();
 
 $textKeys = [
     'site_name',
+    'home_alert_text',
     'site_email',
     'app_timezone',
     'site_email_name',
@@ -18,6 +19,7 @@ $textKeys = [
 ];
 $checkboxKeys = [
     'registration_enabled',
+    'home_alert_enabled',
     'anti_sniping_enabled',
     'allow_creator_to_bid',
     'show_winner_publicly',
@@ -53,6 +55,9 @@ if (is_post()) {
                 flash('error', 'Invalid application timezone. Use a valid PHP timezone such as America/Chicago.');
                 redirect('admin/settings.php');
             }
+        }
+        if ($key === 'home_alert_text') {
+            $value = function_exists('mb_substr') ? mb_substr($value, 0, 2000) : substr($value, 0, 2000);
         }
         if ($key === 'smtp_encryption' && !in_array($value, ['tls', 'ssl', 'none'], true)) {
             $value = 'tls';
@@ -147,6 +152,13 @@ include dirname(__DIR__) . '/includes/header.php';
                 <label for="allowed_email_domain">Allowed Email Domain</label>
                 <input id="allowed_email_domain" name="allowed_email_domain" value="<?= h(setting('allowed_email_domain', '')) ?>" placeholder="example.com">
                 <div class="help">Optional. Leave blank to allow any email domain.</div>
+            </div>
+            <div class="form-row home-alert-setting">
+                <h3>Home Page Alert Banner</h3>
+                <div class="inline home-alert-toggle"><input id="home_alert_enabled" type="checkbox" name="home_alert_enabled" value="1" <?= (string)setting('home_alert_enabled','0') === '1' ? 'checked' : '' ?>><label for="home_alert_enabled">Enable the Home Page Alert Banner</label></div>
+                <label for="home_alert_text">Banner Text</label>
+                <textarea id="home_alert_text" name="home_alert_text" maxlength="2000" placeholder="Example: We have updated our site. Please register a new user."><?= h(setting('home_alert_text', '')) ?></textarea>
+                <div class="help">Optional text displayed prominently at the top of the home page. Line breaks are preserved.</div>
             </div>
             <div class="form-row">
                 <label for="default_bid_increment">Default Bid Increment</label>

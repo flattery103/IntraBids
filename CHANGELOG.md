@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.6.1
+- Fixed category drag-and-drop so rows follow mouse and touch movement reliably across supported browsers.
+- Kept automatic category-order saving and keyboard arrow reordering.
+- Moved the Home Page Alert Banner enable checkbox directly above its banner text field.
+
+## v1.6.0
+- Added drag-and-drop category ordering with automatic server-side saving.
+- Removed manual category sort-number entry from the category management page.
+- Added safe deletion for categories that are not used by any auction.
+- Added an optional administrator-controlled alert banner on the home page.
+- Updated README branding and documentation to use the IntraBids name.
+- Added upgrade defaults for the new home page alert settings.
+
 ## v1.5.2
 - Improved SMTP test failures so missing or disabled SMTP settings show a specific error instead of only a generic log-check message.
 - Added auction creator email notification when an auction closes, including the winning bidder and winning bid when there is a winner.

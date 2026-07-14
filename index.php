@@ -3,6 +3,8 @@ require __DIR__ . '/includes/bootstrap.php';
 
 $now = now_sql();
 $recentlyEndedDays = max(1, min(365, (int)setting('recently_ended_days', '7')));
+$homeAlertEnabled = (string)setting('home_alert_enabled', '0') === '1';
+$homeAlertText = trim((string)setting('home_alert_text', ''));
 $endedCutoff = date('Y-m-d H:i:s', strtotime('-' . $recentlyEndedDays . ' days'));
 $categoryId = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
 $selectedCategory = null;
@@ -71,6 +73,9 @@ $ended = db_all("SELECT a.*, c.name AS category_name,
 
 include __DIR__ . '/includes/header.php';
 ?>
+<?php if ($homeAlertEnabled && $homeAlertText !== ''): ?>
+    <div class="home-alert-banner" role="alert"><?= nl2br(h($homeAlertText)) ?></div>
+<?php endif; ?>
 <div class="auction-layout catalog-layout">
     <aside class="auction-sidebar card category-sidebar">
         <?php if (can_create_auctions()): ?>

@@ -94,6 +94,8 @@ if (is_post() && !$alreadyInstalled) {
                 'site_name' => 'IntraBid',
                 'app_timezone' => $timezone,
                 'site_logo_path' => '',
+                'home_alert_enabled' => '0',
+                'home_alert_text' => '',
                 'site_email' => $siteEmail,
                 'site_email_name' => $siteEmailName,
                 'smtp_enabled' => $smtpEnabled,
